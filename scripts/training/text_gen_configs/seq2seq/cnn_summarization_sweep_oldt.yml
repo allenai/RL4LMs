@@ -1,0 +1,71 @@
+tokenizer:
+  model_name: t5-base
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: rouge
+  args:
+    rouge_type: "rouge1"
+
+datapool:
+  id: cnn_daily_mail
+  args:
+    prompt_prefix: "summarize: "
+
+env:
+  n_envs: 8
+  args:
+    max_prompt_length: 512
+    max_episode_length: 128
+    terminate_on_eos: True
+    prompt_truncation_side: "right"
+
+alg:
+  id: oldt
+  args:
+    n_steps: 256
+    batch_size: 32
+    verbose: 1
+    learning_rate: 0.000001
+    n_epochs: 5
+    train_freq: 1
+    gradient_steps:
+      expand: True
+      values: [128, 512]
+  kl_div:
+    coeff: 0.01
+    target_kl: 0.2
+  policy:
+    id: seq2seq_lm_actor_only_policy
+    args:
+      model_name: t5-base
+      apply_model_parallel: True
+      prompt_truncation_side: "right"
+      generation_kwargs:
+        do_sample: True
+        min_length: 32
+        max_new_tokens: 128
+
+train_evaluation:
+  eval_batch_size: 64
+  n_iters: 200
+  eval_every: 20
+  control_token: '[1.0]'
+  metrics:
+    - id: meteor
+      args: {}
+    - id: rouge
+      args:
+        rouge_type: "rouge1"
+    - id: rouge
+      args:
+        rouge_type: "rouge2"
+    - id: rouge
+      args:
+        rouge_type: "rougeL"
+    - id: bleu
+      args: {}
+    - id: diversity
+      args: {}

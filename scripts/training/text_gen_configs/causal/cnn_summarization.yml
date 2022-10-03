@@ -1,0 +1,84 @@
+tokenizer:
+  model_name: gpt2
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: True 
+
+reward_fn:
+  id: rouge
+  args:
+    rouge_type: "rouge1"
+
+datapool:
+  id: cnn_daily_mail
+  args:
+    prompt_suffix: "TL;DR:"
+    truncate_article: 500
+
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 500
+    max_episode_length: 100
+    terminate_on_eos: True
+
+alg:
+  id: ppo
+  args: 
+    n_steps: 256
+    batch_size: 64
+    verbose: 1
+    learning_rate: 
+      expand: True
+      values: [0.0000001, 0.000001]
+    n_epochs: 5
+    ent_coef: 0.0
+  kl_div:
+    coeff: 0.001
+    target_kl: 0.2
+  policy:
+    id: causal_lm_actor_critic_policy
+    args:
+      model_name: rajkumarrrk/gpt-2-fine-tuned-on-cnn-dm
+      apply_model_parallel: True
+      generation_kwargs:
+        do_sample: True
+        top_k: 0
+        temperature: 0.7
+        min_length: 50
+        max_new_tokens: 100
+  
+train_evaluation:
+  eval_batch_size: 100
+  n_iters: 50
+  eval_every: 10
+  save_every: 1
+  metrics:
+    - id: meteor
+      args: {}
+    - id: rouge
+    - id: bleu
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    # - id: bleurt
+    #   args:
+    #     config_name: bleurt-large-512
+    - id: diversity
+      args: {}
+    # - id: summaCZS
+    #   args:
+    #     granularity: sentence
+    #     use_ent: True
+    #     use_con: False
+    # - id: summaCConv
+    #   args:
+    #     granularity: sentence
+  generation_kwargs:
+    do_sample: True
+    top_k: 0
+    temperature: 0.7
+    min_length: 50
+    max_new_tokens: 100
+

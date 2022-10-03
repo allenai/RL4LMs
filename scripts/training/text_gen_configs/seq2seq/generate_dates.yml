@@ -1,0 +1,54 @@
+tokenizer:
+  model_name: t5-base
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: sentences_with_dates
+  args: {}
+
+datapool:
+  id: dummy_pool
+  args:
+    n_samples: 50
+    prompt: ''
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 5
+    max_episode_length: 50
+    terminate_on_eos: True
+    context_start_token: 0
+
+alg:
+  id: ppo
+  args:
+    n_steps: 128
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.00001
+    n_epochs: 5
+    ent_coef: 0.001
+  kl_div:
+    coeff: 0.001
+    batch_size: 64
+  policy:
+    id: seq2seq_lm_policy
+    args:
+      model_name: t5-base
+      apply_model_parallel: True
+      weight_decay: 0.001
+      generation_kwargs:
+        do_sample: True
+        top_k: 0
+        min_length: 10
+        max_new_tokens: 50  # this must align with env's max steps
+
+train_evaluation:
+  eval_batch_size: 256
+  n_iters: 200
+  eval_every: 10
+  metrics:
+    - id: dates
+      args: {}

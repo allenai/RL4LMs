@@ -1,0 +1,53 @@
+tokenizer:
+  model_name: gpt2
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: True 
+
+reward_fn:
+  id: sentences_with_dates
+  args: {}
+
+datapool:
+  id: dummy_pool
+  args:
+    n_samples: 50
+    prompt: '<|endoftext|>'
+
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 5
+    max_episode_length: 30
+    terminate_on_eos: True
+
+alg:
+  id: ppo
+  args: 
+    n_steps: 128
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.00001
+    n_epochs: 5
+    ent_coef: 0.001
+    clip_range: 0.2
+  kl_div:
+    coeff: 0.02
+    target_kl: 2
+  policy:
+    id: causal_lm_actor_critic_policy
+    args:
+      model_name: gpt2
+      apply_model_parallel: True
+      generation_kwargs:
+        do_sample: True
+        top_k: 0
+        max_new_tokens: 30 # this must align with env's max steps
+  
+train_evaluation:
+  eval_batch_size: 256
+  n_iters: 100
+  eval_every: 5
+  metrics:
+    - id: dates
+      args: {}

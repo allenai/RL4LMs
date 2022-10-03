@@ -1,0 +1,61 @@
+tokenizer:
+  model_name: lvwerra/gpt2-imdb
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: True
+
+reward_fn:
+  id: learned_reward
+  args:
+    model_name: lvwerra/distilbert-imdb
+    label_ix: 1
+
+datapool:
+  id: imdb
+  args: {}
+
+
+env:
+  n_envs: 8
+  args:
+    max_prompt_length: 64
+    max_episode_length: 48
+    terminate_on_eos: True
+
+alg:
+  id: oldt
+  args:
+    n_steps: 256
+    batch_size: 32
+    verbose: 1
+    learning_rate: 0.000001
+    n_epochs: 5
+    train_freq: 1
+    gradient_steps:
+      expand: True
+      values: [128, 512]
+  kl_div:
+    coeff: 0.01
+    target_kl: 0.2
+  policy:
+    id: causal_lm_actor_only_policy
+    args:
+      model_name: lvwerra/gpt2-imdb
+      apply_model_parallel: True
+      prompt_truncation_side: "right"
+      generation_kwargs:
+        do_sample: True
+        min_length: 32
+        max_new_tokens: 128
+
+train_evaluation:
+  eval_batch_size: 32
+  n_iters: 200
+  eval_every: 10
+  control_token: '[1.0]'
+  metrics:
+    - id: learned_reward
+      args:
+        model_name: lvwerra/distilbert-imdb
+        label_ix: 1
+        batch_size: 100
