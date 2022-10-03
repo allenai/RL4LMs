@@ -14,7 +14,6 @@ from stable_baselines3.a2c import A2C
 from rl4lms.algorithms.nlpo import NLPO
 from rl4lms.algorithms.ppo.ppo import PPO
 from rl4lms.algorithms.trpo import TRPO
-from rl4lms.algorithms.oldt import OLDT
 from rl4lms.envs.text_generation.post_processors import three_sentence_summary
 from rl4lms.envs.text_generation.alg_wrappers import wrap_onpolicy_alg, wrap_offpolicy_alg
 
@@ -136,7 +135,6 @@ class AlgorithmRegistry:
         "trpo": TRPO,
         "ppo": PPO,
         "a2c": A2C,
-        "oldt": OLDT
     }
 
     @classmethod
