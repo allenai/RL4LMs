@@ -99,7 +99,8 @@ Further configuration settings include:
       context_start_token: 0
   ```
 
-- **On-policy alg**: We provide implementations of 4 on-policy algorithms: PPO, NLPO, A2C and TRPO from stable-baselines tailored to work with NLP tasks which can be used out-of-the-box with either a causal policy or a seq2seq LM policy. 
+- **On-policy alg**: We provide implementations of 4 on-policy algorithms: PPO, NLPO, A2C and TRPO adapted from [stable-baselines3](https://github.com/DLR-RM/stable-baselines3) tailored to work with NLP tasks which can be used out-of-the-box with either a causal policy or a seq2seq LM policy.
+  - Supervised warm start models are already uploaded to Huggingface Hub and specified in the respective config files.
   - Hyper-parameters for the algorithm can be specified at `alg/args`. 
   - Further, all algorithms use adaptive KL controller to keep the LM close to original LM by setting initial KL co-efficient (`alg/kl_div/coeff`) and target KL (`alg/kl_div/target_kl`). 
   - We support two types of LM policy: **causal LM policy** (for decoder only models) and **seq2seq LM policy** (for encoder-decoder models). Further for NLPO, we also provide maskable variants of these. Policies are implemented in  `rl4lms/envs/text_generation/policy.py` and can be attached to algorithms by specifying `alg/policy/id` and `alg/policy/args`
