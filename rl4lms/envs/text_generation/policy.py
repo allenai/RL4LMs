@@ -120,6 +120,10 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
         dist = self._action_dist.proba_distribution(
             action_logits=next_token_logits)
         return dist
+
+    def predict_values(self, obs: TensorDict):
+        values, _ = self.forward_value(obs)
+        return values
         
 
     def forward_policy(self, obs: TensorDict,
