@@ -1,8 +1,8 @@
-# RL4LMs :robot:  - A modular RL library to fine-tune language models for natural language generation tasks :rocket:
+# RL4LMs :robot:  - A modular RL library to fine-tune language models to human preferences :rocket:
 
 We provide easily customizable building blocks for training language models including implementations of **on-policy algorithms**, **reward functions**, **metrics**, **datasets** and **LM based actor-critic policies**
 
-Thoroughly **tested** and **benchmarked** with over **2k experiments** :fire: (GRUE benchmark :trophy:) on a comprehensive set of: 
+Thoroughly **tested** and **benchmarked** with over **2000 experiments** :fire: (GRUE benchmark :trophy:) on a comprehensive set of: 
 - 6 different Natural Language Processing (NLP) Tasks:
     - Summarization
     - Generative Commonsense Reasoning
