@@ -1,0 +1,101 @@
+tokenizer:
+  model_name: allenai/unifiedqa-t5-base
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: rouge_l_max
+  args:
+    max_n: 4
+    limit_length: True
+    length_limit: 100
+    length_limit_type: "words"
+    apply_avg: True
+    apply_best: True
+    alpha: 0.5
+    weight_factor: 1.2
+    stemming: True
+  # expand: True
+  # values:
+  #   - id: rouge_l_max
+  #     args:
+  #       max_n: 4
+  #       limit_length: True
+  #       length_limit: 100
+  #       length_limit_type: "words"
+  #       apply_avg: True
+  #       apply_best: True
+  #       alpha: 0.5
+  #       weight_factor: 1.2
+  #       stemming: True
+  #   - id: meteor
+  #   - id: bleu
+
+datapool:
+  id: narrative_qa
+
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 512
+    max_episode_length: 50
+    terminate_on_eos: True
+    context_start_token: 0
+    prompt_truncation_side: "right"
+
+alg:
+  id: nlpo
+  args:
+    n_steps: 256
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.0000005
+    n_epochs: 5
+  kl_div:
+    coeff: 0.001
+    target_kl: 0.2
+  policy:
+    id: maskable_seq2seq_lm_actor_critic_policy
+    args:
+      model_name: allenai/unifiedqa-t5-base
+      apply_model_parallel: True
+      mask_type: "learned_top_p"
+      top_mask: 0.9
+      target_update_iterations: 20
+      generation_kwargs:
+        do_sample: True
+        top_k: 50
+
+train_evaluation:
+  eval_batch_size: 50
+  n_iters: 100
+  eval_every: 10
+  save_every: 1
+  metrics:
+    - id: meteor
+      args: {}
+    - id: rouge
+      args:
+        use_single_ref: False
+    - id: bleu
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    - id: rouge_l_max
+      args:
+        max_n: 4
+        limit_length: True
+        length_limit: 100
+        length_limit_type: "words"
+        apply_avg: True
+        apply_best: True
+        alpha: 0.5
+        weight_factor: 1.2
+        stemming: True
+    - id: diversity
+      args: {}
+  generation_kwargs:
+    num_beams: 4
+    max_new_tokens: 50
