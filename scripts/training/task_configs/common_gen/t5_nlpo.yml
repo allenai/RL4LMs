@@ -1,0 +1,84 @@
+tokenizer:
+  model_name: t5-base
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: meteor
+  args:
+    shaping_fn: "common_gen_repeat_penalty"
+
+
+datapool:
+  id: commongen
+  args:
+    concept_end_token: '.'
+    concept_separator_token: ' '
+    prefix: "generate a sentence with: "
+
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 15
+    max_episode_length: 20
+    terminate_on_eos: True
+    context_start_token: 0
+
+alg:
+  id: nlpo
+  args:
+    n_steps: 128
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.000002
+    n_epochs: 5
+  kl_div:
+    coeff: 0.001
+    target_kl: 2.0
+  policy:
+    id: maskable_seq2seq_lm_actor_critic_policy
+    args:
+      model_name: t5-base
+      apply_model_parallel: True
+      mask_type: "learned_top_p"
+      top_mask: 0.9
+      target_update_iterations: 20
+      generation_kwargs:
+        do_sample: True
+        top_k: 50
+        min_length: 10
+        max_new_tokens: 20
+
+train_evaluation:
+  eval_batch_size: 100
+  n_iters: 100
+  eval_every: 10
+  save_every: 20
+  metrics:
+    - id: meteor
+      args: {}
+    - id: rouge
+    - id: bleu
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    # - id: bleurt
+    #   args:
+    #     config_name: bleurt-large-512
+    - id: diversity
+      args: {}
+    # - id: summaCZS
+    #   args:
+    #     granularity: sentence
+    #     use_ent: True
+    #     use_con: False
+    # - id: summaCConv
+    #   args:
+    #     granularity: sentence
+  generation_kwargs:
+    do_sample: True
+    top_k: 50
+    min_length: 10
+    max_new_tokens: 20
