@@ -6,5 +6,5 @@ Run $ ./get_stanford_models.sh or otherwise download the CoreNLP 3.6.0 code and 
 Instructions for using SPICE are found in spice-1.0.jar/README.md
 
 
-More details:
+References:
 https://panderson.me/spice/

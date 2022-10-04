@@ -635,14 +635,14 @@ if __name__ == "__main__":
     # metric = RougeMetric()
     # print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    metric = SacreBLEUMetric(tokenize="intl")
-    print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    # metric = SacreBLEUMetric(tokenize="intl")
+    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    metric = TERMetric()
-    print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    # metric = TERMetric()
+    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    metric = chrFmetric()
-    print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    # metric = chrFmetric()
+    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
     # metric = BERTScoreMetric(language="en")
     # print(metric.compute(prompt_texts, gen_texts, reference_texts))
@@ -667,15 +667,15 @@ if __name__ == "__main__":
     # metric = SummaCConvMetric(granularity="sentence")
     # print(metric.compute([document], [summary], []))
 
-    # prompt_texts = ["1", "2"]
-    # gen_texts = ["The dog is the boy's cat.",
-    #              "A boy is picking apples from trees and put them into bags."]
-    # reference_texts = [
-    #     ["The dog is the boy's cat.", "The dog eats the cat of the boy."],
-    #     ["A boy is picking apples from trees."]
-    # ]
-    # metric = CIDERMetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    prompt_texts = ["1", "2"]
+    gen_texts = ["The dog is the boy's cat.",
+                 "A boy is picking apples from trees and put them into bags."]
+    reference_texts = [
+        ["The dog is the boy's cat.", "The dog eats the cat of the boy."],
+        ["A boy is picking apples from trees."]
+    ]
+    metric = CIDERMetric()
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = SpiceMetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = SpiceMetric()
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))

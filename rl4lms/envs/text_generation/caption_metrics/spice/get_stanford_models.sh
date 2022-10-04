@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
 # This script downloads the Stanford CoreNLP models.
 
+# Adapted from:
+# https://panderson.me/spice/
+
 CORENLP=stanford-corenlp-full-2015-12-09
 SPICELIB=lib
 

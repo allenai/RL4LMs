@@ -1,3 +1,7 @@
+"""
+Adapted from https://github.com/INK-USC/CommonGen/tree/master/evaluation/Traditional/eval_metrics/spice
+"""
+
 from __future__ import division
 import os
 import subprocess
