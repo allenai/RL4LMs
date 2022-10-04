@@ -1,4 +1,12 @@
-# RL4LMs :robot:  - A modular RL library to fine-tune language models to human preferences :rocket:
+<p align="center">
+  <img src="RL4LMs_logo.png" width=512px>
+</p>
+
+<h1 align="center"> :robot: RL4LMs :rocket: </h1>
+
+<h3 align="center"> A modular RL library to fine-tune language models to human preferences </h3>
+
+<br>
 
 We provide easily customizable building blocks for training language models including implementations of **on-policy algorithms**, **reward functions**, **metrics**, **datasets** and **LM based actor-critic policies**
 
