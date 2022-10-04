@@ -90,6 +90,38 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
                 value, torch.Tensor) else value for key, value in model_inputs.items()}
         return model_inputs
 
+    def get_distribution(self, obs: TensorDict, detach=False):
+        input_ids = obs["input_encoded_pt"].int()
+        attention_mask = obs["input_attention_mask_pt"]
+        past_model_kwargs = {
+            "attention_mask": attention_mask,
+        }
+
+        if detach:
+            with torch.no_grad():
+                model_inputs = self._prepare_inputs_for_model(self._policy_model,
+                                                            input_ids,
+                                                            past_model_kwargs)
+
+                # forward pass to transformers
+                output = self._policy_model(
+                    output_hidden_states=True, **model_inputs)
+        else:
+                model_inputs = self._prepare_inputs_for_model(self._policy_model,
+                                                            input_ids,
+                                                            past_model_kwargs)
+
+                # forward pass to transformers
+                output = self._policy_model(
+                    output_hidden_states=True, **model_inputs)
+
+        # compute action probs - policy head
+        next_token_logits = output.logits[:, -1, :]
+        dist = self._action_dist.proba_distribution(
+            action_logits=next_token_logits)
+        return dist
+        
+
     def forward_policy(self, obs: TensorDict,
                        actions: torch.tensor,
                        past_model_kwargs: Optional[Dict[str, torch.tensor]] = None):

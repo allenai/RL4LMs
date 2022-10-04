@@ -16,6 +16,7 @@ from torch.nn import functional as F
 
 from rl4lms.algorithms.common.algo_utils import conjugate_gradient_solver, flat_grad
 from rl4lms.algorithms.trpo.policies import *
+from rl4lms.envs.text_generation.logging_utils import Tracker
 
 
 class TRPO(OnPolicyAlgorithm):
@@ -77,6 +78,7 @@ class TRPO(OnPolicyAlgorithm):
         self,
         policy: Union[str, Type[ActorCriticPolicy]],
         env: Union[GymEnv, str],
+                    tracker: Tracker,
         learning_rate: Union[float, Schedule] = 1e-3,
         n_steps: int = 2048,
         batch_size: int = 128,
@@ -165,6 +167,8 @@ class TRPO(OnPolicyAlgorithm):
         if _init_setup_model:
             self._setup_model()
 
+        self._tracker = tracker
+
     def _compute_actor_grad(
         self, kl_div: th.Tensor, policy_objective: th.Tensor
     ) -> Tuple[List[nn.Parameter], th.Tensor, th.Tensor, List[Tuple[int, ...]]]:
@@ -229,7 +233,8 @@ class TRPO(OnPolicyAlgorithm):
         Update policy using the currently gathered rollout buffer.
         """
         # Switch to train mode (this affects batch norm / dropout)
-        self.policy.set_training_mode(True)
+        #self.policy.set_training_mode(True)
+        
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
         gather_device = self.policy.device

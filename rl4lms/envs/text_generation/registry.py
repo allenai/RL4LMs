@@ -1,3 +1,4 @@
+import imp
 from rl4lms.envs.text_generation.test_reward import RewardIncreasingNumbers, RewardSentencesWithDates
 from rl4lms.envs.text_generation.test_datapool import TestTextGenPool
 from rl4lms.envs.text_generation.metric import BaseMetric, LearnedRewardMetric, MeteorMetric, RougeMetric, BERTScoreMetric, BLEUMetric, BLEURTMetric, DiversityMetrics, SummaCZSMetric, SummaCConvMetric, Perplexity, CIDERMetric, SpiceMetric, ParentToTTo, BLEUToTTo, RougeLMax, SacreBLEUMetric, TERMetric, chrFmetric
@@ -10,10 +11,10 @@ from rl4lms.envs.text_generation.policy import BasePolicy, LMActorCriticPolicy, 
 
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
-from stable_baselines3.a2c import A2C
 from rl4lms.algorithms.nlpo import NLPO
 from rl4lms.algorithms.ppo.ppo import PPO
 from rl4lms.algorithms.trpo import TRPO
+from rl4lms.algorithms.a2c.a2c import A2C
 from rl4lms.envs.text_generation.post_processors import three_sentence_summary
 from rl4lms.envs.text_generation.alg_wrappers import wrap_onpolicy_alg
 

@@ -1,0 +1,89 @@
+tokenizer:
+  model_name: t5-base
+  padding_side: left
+  truncation_side: right
+  pad_token_as_eos_token: False 
+
+reward_fn:
+  id: meteor
+    # - id: parent
+    # - id: meteor
+    # - id: meteor
+    #   args:
+    #     shaping_fn: "parent"
+    # - id: bleu
+    # - id: sacre_bleu
+
+datapool:
+  id: totto
+  args:
+    representation: 'subtable'
+
+
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 512
+    max_episode_length: 50
+    terminate_on_eos: True
+    context_start_token: 0
+
+
+alg:
+  id: ppo
+  args:
+    n_steps: 256
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.000002
+    n_epochs: 5
+  kl_div:
+    coeff: 0.001
+    target_kl: 2.0
+  policy:
+    id: seq2seq_lm_actor_critic_policy
+    args:
+      model_name: t5-base
+      apply_model_parallel: True
+      generation_kwargs:
+        do_sample: True
+        top_k: 0
+        min_length: 10
+        max_new_tokens: 50
+    
+train_evaluation:
+  eval_batch_size: 100
+  n_iters: 100
+  eval_every: 20
+  save_every: 1
+  metrics:
+    - id: meteor
+      args: {}
+    - id: parent_totto
+      args: {}
+    - id: rouge
+      args:
+        use_single_ref: False
+    - id: bleu_totto
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    # - id: bleurt
+    #   args:
+    #     config_name: bleurt-large-512
+    - id: diversity
+      args: {}
+    # - id: summaCZS
+    #   args:
+    #     granularity: sentence
+    #     use_ent: True
+    #     use_con: False
+    # - id: summaCConv
+    #   args:
+    #     granularity: sentence
+  generation_kwargs:
+    num_beams: 5
+    min_length: 10
+    max_new_tokens: 50
+

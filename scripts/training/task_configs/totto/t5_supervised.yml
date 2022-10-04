@@ -1,0 +1,59 @@
+tokenizer:
+  model_name: t5-base
+  padding_side: left
+  truncation_side: right
+  pad_token_as_eos_token: False 
+
+datapool:
+  id: totto
+  args:
+    representation: 'subtable'
+
+alg:
+  id: supervised
+  training_args:
+    per_device_train_batch_size: 8
+    logging_steps: 20000
+    num_train_epochs: 5
+    weight_decay: 0.1
+    lr_scheduler_type: constant_with_warmup
+    learning_rate: 0.0001
+    save_total_limit: 1
+  model_type: seq2seq
+  model_name: "t5-base"
+  generation_kwargs:
+    do_sample: True
+    num_beams: 10
+    min_length: 10
+    max_new_tokens: 50
+    post_processing_fn: null
+
+train_evaluation:
+  eval_batch_size: 100
+  metrics:
+    - id: meteor
+      args: {}
+    - id: parent_totto
+      args: {}
+    - id: rouge
+      args:
+        use_single_ref: False
+    - id: bleu_totto
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    # - id: bleurt
+    #   args:
+    #     config_name: bleurt-large-512
+    - id: diversity
+      args: {}
+    # - id: summaCZS
+    #   args:
+    #     granularity: sentence
+    #     use_ent: True
+    #     use_con: False
+    # - id: summaCConv
+    #   args:
+    #     granularity: sentence
+
