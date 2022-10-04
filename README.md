@@ -46,7 +46,7 @@ We provide a simple training API that can be invoked via `scripts/training/train
 For example, to train T5-base on CNN/DM summarization on PPO using Rouge-1 as reward function, you can run:
 
 ```bash
-python scripts/train_text_generation.py --config_path scripts/task_configs/summarization/t5_ppo.yml
+python scripts/training/train_text_generation.py --config_path scripts/task_configs/summarization/t5_ppo.yml
 ```
 
 ## YAML file schema - Configuring building blocks
