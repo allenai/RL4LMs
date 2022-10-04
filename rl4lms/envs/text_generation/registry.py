@@ -7,7 +7,7 @@ from rl4lms.envs.text_generation.test_metric import IncreasingNumbersinText, Dat
 from rl4lms.data_pools.text_generation_pool import TextGenPool
 from rl4lms.envs.text_generation.reward import RewardFunction, LearnedRewardFunction, MeteorRewardFunction, RougeRewardFunction, BERTScoreRewardFunction, BLEURewardFunction, BLEURTRewardFunction, RougeCombined, SpiderRewardFunction, CommonGenPenaltyShapingFunction, BatchedCommonGenPenaltyShapingFunction, PARENTRewardFunction, SacreBleu, RougeLMaxRewardFunction, TER, chrF
 from typing import Dict, Type, Any, Union
-from rl4lms.envs.text_generation.policy import BasePolicy, LMActorCriticPolicy, Seq2SeqLMActorCriticPolicy, MaskableLMActorCriticPolicy, MaskableSeq2SeqLMActorCriticPolicy, LMActorOnlyPolicy, Seq2SeqLMActorOnlyPolicy
+from rl4lms.envs.text_generation.policy import BasePolicy, LMActorCriticPolicy, Seq2SeqLMActorCriticPolicy, MaskableLMActorCriticPolicy, MaskableSeq2SeqLMActorCriticPolicy
 
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
@@ -115,9 +115,7 @@ class PolicyRegistry:
         "causal_lm_actor_critic_policy": LMActorCriticPolicy,
         "seq2seq_lm_actor_critic_policy": Seq2SeqLMActorCriticPolicy,
         "maskable_causal_lm_actor_critic_policy": MaskableLMActorCriticPolicy,
-        "maskable_seq2seq_lm_actor_critic_policy": MaskableSeq2SeqLMActorCriticPolicy,
-        "causal_lm_actor_only_policy": LMActorOnlyPolicy,
-        "seq2seq_lm_actor_only_policy": Seq2SeqLMActorOnlyPolicy
+        "maskable_seq2seq_lm_actor_critic_policy": MaskableSeq2SeqLMActorCriticPolicy
     }
 
     @classmethod

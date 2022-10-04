@@ -201,7 +201,7 @@ class TRPO(OnPolicyAlgorithm):
             # For each parameter we compute the gradient of the KL divergence w.r.t to that parameter
             kl_param_grad, *_ = th.autograd.grad(
                 kl_div,
-                param,
+                param.to(kl_div.device),
                 create_graph=True,
                 retain_graph=True,
                 allow_unused=True,
@@ -215,12 +215,12 @@ class TRPO(OnPolicyAlgorithm):
                 # this avoids computing the gradient if it's not going to be used in the conjugate gradient step
                 policy_objective_grad, * \
                     _ = th.autograd.grad(
-                        policy_objective, param, retain_graph=True, only_inputs=True)
+                        policy_objective.to(param.device), param, retain_graph=True, only_inputs=True)
 
                 grad_shape.append(kl_param_grad.shape)
                 grad_kl.append(kl_param_grad.reshape(-1))
                 policy_objective_gradients.append(
-                    policy_objective_grad.reshape(-1))
+                    policy_objective_grad.reshape(-1).to(kl_param_grad.device))
                 actor_params.append(param)
 
         # Gradients are concatenated before the conjugate gradient step
