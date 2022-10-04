@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from rl4lms.envs.text_generation.logging_utils import Tracker
-from rl4lms.envs.text_generation.training_utils import OnPolicyTrainer, OffPolicyTrainer, SupervisedTrainer
+from rl4lms.envs.text_generation.training_utils import OnPolicyTrainer, SupervisedTrainer
 import yaml
 import os
 

@@ -3,10 +3,10 @@
 We provide easily customizable building blocks for training language models including implementations of on-policy algorithms, reward functions, metrics, datasets and LM actor-critic policies
 
 Thoroughly tested and benchmarked on a comprehensive set of: 
-- 6 different Natural Language Generation (NLG) Tasks:
+- 6 different Natural Language Processing (NLP) Tasks:
     - Summarization
-    - Generative CommonSense Reasoning
-    - IMDB Text Continuation
+    - Generative Commonsense Reasoning
+    - IMDB Sentiment-based Text Continuation
     - Table-to-text generation
     - Abstractive Question Answering
     - Machine Translation
@@ -29,7 +29,9 @@ pip install -e .
 
 ## Docker
 We provide also a Dockerfile for development using docker containers containing all the dependencies.
-
+```bash
+docker build -t . rl4lms
+```
 
 ## Additional dependencies
 
@@ -161,6 +163,6 @@ RL4LMs provide full customizability - with respect to adding new tasks/datasets,
 
 # Logging
 
-Additionally, we support WANDB logging and warm-starting of training by storing checkpoints and other training artifacts in a user-specified path
+Additionally, we support WANDB logging and warm-starting of training by storing checkpoints and other training artifacts in a user-specified path. This is especially useful for running preemptible jobs on larged, scheduled clusters.
 ```bash 
 WANDB_API_KEY=<YOUR-WANDB-API-KEY-HERE>  python scripts/training/train_text_generation.py --config_path <PATH-TO-CONFIG-FILE> --experiment_name <EXPERIMENT-NAME> --base_path_to_store_results <PATH-TO-STORE-RESULTS> --log_to_wandb
