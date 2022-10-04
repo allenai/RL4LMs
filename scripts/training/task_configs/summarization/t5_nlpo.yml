@@ -1,0 +1,84 @@
+tokenizer:
+  model_name: t5-base
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: meteor
+  
+datapool:
+  id: cnn_daily_mail
+  args:
+    prompt_prefix: "Summarize: "
+
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 512
+    max_episode_length: 100
+    terminate_on_eos: True
+    prompt_truncation_side: "right"
+    context_start_token: 0
+
+alg:
+  id: nlpo
+  args:
+    n_steps: 512
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.000002
+    n_epochs: 5
+    ent_coef: 0.0
+  kl_div:
+    coeff: 0.001
+    target_kl: 0.2
+  policy:
+    id: maskable_seq2seq_lm_actor_critic_policy
+    args:
+      model_name: t5-base
+      apply_model_parallel: True
+      prompt_truncation_side: "right"
+      min_tokens_to_keep: 100
+      top_mask: 0.9
+      mask_type: learned_top_p
+      target_update_iterations: 20
+      generation_kwargs:
+        do_sample: True
+        top_k: 100
+        min_length: 50
+        max_new_tokens: 100
+
+train_evaluation:
+  eval_batch_size: 100
+  n_iters: 100
+  eval_every: 10
+  save_every: 1
+  metrics:
+    - id: meteor
+      args: {}
+    - id: rouge
+    - id: bleu
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    # - id: bleurt
+    #   args:
+    #     config_name: bleurt-large-512
+    - id: diversity
+      args: {}
+    # - id: summaCZS
+    #   args:
+    #     granularity: sentence
+    #     use_ent: True
+    #     use_con: False
+    # - id: summaCConv
+    #   args:
+    #     granularity: sentence
+  generation_kwargs:
+    do_sample: True
+    top_k: 0
+    temperature: 0.7
+    min_length: 50
+    max_new_tokens: 100

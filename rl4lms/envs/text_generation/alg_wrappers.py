@@ -339,22 +339,3 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
     alg = OnPolicyAlgText(alg_kwargs, kl_coeff, tracker,
                           target_kl, norm_reward)
     return alg
-
-
-def wrap_offpolicy_alg(alg_class: Type[OffPolicyAlgorithm],
-                       alg_kwargs: Dict[str, Any],
-                       kl_coeff: float,
-                       tracker: Tracker,
-                       target_kl: float = None):
-    class OffPolicyAlgText(alg_class, OffPolicyWarmStartMixin):
-        def __init__(self, alg_kwargs: Dict[str, Any],
-                     kl_coeff: float,
-                     tracker: Tracker,
-                     target_kl: float = None):
-            super().__init__(**alg_kwargs)
-            self.kl_coeff = kl_coeff
-            self.tracker = tracker
-
-    # instantiate the wrapped alg
-    alg = OffPolicyAlgText(alg_kwargs, kl_coeff, tracker)
-    return alg

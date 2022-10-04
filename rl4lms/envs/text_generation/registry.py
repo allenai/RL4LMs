@@ -15,7 +15,7 @@ from rl4lms.algorithms.nlpo import NLPO
 from rl4lms.algorithms.ppo.ppo import PPO
 from rl4lms.algorithms.trpo import TRPO
 from rl4lms.envs.text_generation.post_processors import three_sentence_summary
-from rl4lms.envs.text_generation.alg_wrappers import wrap_onpolicy_alg, wrap_offpolicy_alg
+from rl4lms.envs.text_generation.alg_wrappers import wrap_onpolicy_alg
 
 
 class DataPoolRegistry:
@@ -156,7 +156,6 @@ class WrapperRegistry:
         "trpo": wrap_onpolicy_alg,
         "ppo": wrap_onpolicy_alg,
         "a2c": wrap_onpolicy_alg,
-        "oldt": wrap_offpolicy_alg
     }
 
     @classmethod

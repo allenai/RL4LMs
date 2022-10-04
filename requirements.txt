@@ -3,7 +3,7 @@ bert-score==0.3.11
 BLEURT @ git+https://github.com/google-research/bleurt.git@c6f2375c7c178e1480840cf27cb9e2af851394f9
 datasets==2.5.1
 gem-metrics @ git+https://github.com/GEM-benchmark/GEM-metrics.git@431a8174bd6b3637e8d6118bfad2983e39e99733
-gym==0.21.0
+gym==0.22.0
 jsonlines==3.0.0
 nltk==3.7
 pandas==1.3.5

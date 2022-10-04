@@ -1,3 +1,9 @@
+"""
+Code adapted from https://github.com/DLR-RM/stable-baselines3
+"""
+
+
+
 from typing import Generator, NamedTuple, Optional, Union
 
 import numpy as np
@@ -7,7 +13,6 @@ from gym import spaces
 from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
 from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.vec_env import VecNormalize
-
 
 class MaskableRolloutBufferSamples(NamedTuple):
     observations: th.Tensor

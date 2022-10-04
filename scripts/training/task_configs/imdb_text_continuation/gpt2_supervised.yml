@@ -1,0 +1,46 @@
+tokenizer:
+  model_name: gpt2
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: True
+  max_length: 64
+
+datapool:
+  id: "imdb_seq2seq"
+  args:
+    positive_ratio: 1.0
+
+alg:
+  id: supervised
+  training_args:
+    per_device_train_batch_size: 16
+    logging_steps: 200
+    num_train_epochs: 10
+    lr_scheduler_type: "constant"
+    learning_rate: 0.00001
+    save_total_limit: 1
+  model_type: causal
+  model_name: lvwerra/gpt2-imdb
+  generation_kwargs:
+    do_sample: True
+    min_length: 48
+    max_new_tokens: 48
+    post_processing_fn: null
+
+train_evaluation:
+  eval_batch_size: 256
+  metrics:
+    - id: learned_reward
+      args: 
+        model_name: lvwerra/distilbert-imdb
+        label_ix: 1
+        batch_size: 100
+    - id: causal_perplexity
+      args:
+        tokenizer_id: gpt2
+        stride: 512
+        model_type: causal
+        use_text_from_meta_data: True
+    - id: diversity
+      args: {}
+

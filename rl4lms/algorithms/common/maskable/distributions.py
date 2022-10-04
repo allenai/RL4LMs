@@ -1,3 +1,7 @@
+"""
+Code adapted from https://github.com/DLR-RM/stable-baselines3
+"""
+
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 

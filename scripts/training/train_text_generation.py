@@ -25,16 +25,7 @@ def main(config_path: str,
                       log_to_wandb)
 
     # instantiate the trainer here
-    # TBD : configure this with registry
-    if "oldt" in config["alg"]["id"]:
-        trainer = OffPolicyTrainer(tokenizer_config=config["tokenizer"],
-                                   datapool_config=config["datapool"],
-                                   reward_config=config["reward_fn"],
-                                   env_config=config["env"],
-                                   off_policy_alg_config=config["alg"],
-                                   train_eval_config=config["train_evaluation"],
-                                   tracker=tracker)
-    elif "supervised" in config["alg"]["id"]:
+    if "supervised" in config["alg"]["id"]:
         trainer = SupervisedTrainer(tokenizer_config=config["tokenizer"],
                                     datapool_config=config["datapool"],
                                     alg_config=config["alg"],
