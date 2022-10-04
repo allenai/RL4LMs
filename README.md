@@ -32,7 +32,7 @@ pip install -e .
 ## Docker
 We provide also a Dockerfile for development using docker containers containing all the dependencies.
 ```bash
-docker build -t . rl4lms
+docker build . -t rl4lms
 ```
 
 ## Additional dependencies
