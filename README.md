@@ -90,7 +90,7 @@ Config file contains details about hyper-parameter settings for building blocks 
       rouge_type: "rouge1"
   ```
 
-- **Environment**: Configures a gym-style text generation [environment](https://github.com/allenai/RL4LMs/blob/main/rl4lms/envs/text_generation/registry.py) which simulates MDP episodes. Rollouts are generated using train samples from dataset consisting of input and reference texts.
+- **Environment**: Configures a gym-style text generation [environment](https://github.com/allenai/RL4LMs/blob/main/rl4lms/envs/text_generation/env.py) which simulates MDP episodes. Rollouts are generated using train samples from dataset consisting of input and reference texts.
 Further, we wrap our env with `SubProcVecEnv` from stable-baselines that processes `n_envs` episodes in parallel using multi-processing to compute step-wise rewards.  
 Further configuration settings include: 
   - `max_episode_length` : max length of the episode 
