@@ -18,7 +18,7 @@ Thoroughly **tested** and **benchmarked** with over **2000 experiments** :fire: 
     - Table-to-text generation
     - Abstractive Question Answering
     - Machine Translation
-- Different types of NLG metrics (over 15x) which can be used as reward functions:
+- Different types of NLG metrics (20+) which can be used as reward functions:
     - Lexical Metrics (eg: ROUGE, BLEU, SacreBLEU, METEOR)
     - Semantic Metrics (eg: BERTSCORE, BLEURT)
     - Task specific metrics (eg: PARENT, CIDER, SPICE)
