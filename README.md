@@ -10,6 +10,10 @@
 
 We provide easily customizable building blocks for training language models including implementations of **on-policy algorithms**, **reward functions**, **metrics**, **datasets** and **LM based actor-critic policies**
 
+Paper Link: https://arxiv.org/abs/2203.07540
+
+Website Link: https://rl4lms.apps.allenai.org/
+
 Thoroughly **tested** and **benchmarked** with over **2000 experiments** :fire: (GRUE benchmark :trophy:) on a comprehensive set of: 
 - 6 different Natural Language Processing (NLP) Tasks:
     - Summarization
@@ -293,4 +297,18 @@ WANDB_API_KEY=<YOUR-WANDB-API-KEY-HERE>  python scripts/training/train_text_gene
 --experiment_name <EXPERIMENT-NAME> \
 --base_path_to_store_results <PATH-TO-STORE-RESULTS> \
 --log_to_wandb
+```
+
+---
+
+# Citation
+
+```bibtex
+@inproceedings{Ramamurthy2022IsRL,
+  title={Is Reinforcement Learning (Not) for Natural Language Processing?: Benchmarks, Baselines, and Building Blocks for Natural Language Policy Optimization},
+  author={Rajkumar Ramamurthy and Prithviraj Ammanabrolu and Kiant{\'e} Brantley and Jack Hessel and Rafet Sifa and Christian Bauckhage and Hannaneh Hajishirzi and Yejin Choi},
+  journal={arXiv preprint arXiv:2210.01241},
+  url={https://arxiv.org/abs/2210.01241},
+  year={2022}
+}
 ```
