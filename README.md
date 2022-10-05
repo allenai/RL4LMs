@@ -49,8 +49,8 @@ docker build . -t rl4lms
 Optionally, coreNLP libraries are required for certain metric computations (eg. SPICE) which can be downloaded through `cd rl4lms/envs/text_generation/caption_metrics/spice && bash get_stanford_models.sh`
 
 ---
-# Quick Start - Train PPO/NLPO using pre-defined YAML configs :wrench:
-We provide a simple training API that can be invoked via `scripts/training/train_text_generation.py` that allows to train PPO, NLPO or a supervised model by using a config file (YAML). 
+# Quick Start - Train PPO/NLPO using pre-defined YAML configs
+We provide a simple training API that can be invoked via train [script](https://github.com/allenai/RL4LMs/blob/main/scripts/training/train_text_generation.py) that allows to train PPO, NLPO or a supervised model by using a config file (YAML). 
 
 For example, to train T5-base on CNN/DM summarization on PPO using Rouge-1 as reward function, you can run:
 
@@ -64,7 +64,7 @@ Config files for all tasks can be found [here](https://github.com/allenai/RL4LMs
 
 Config file contains details about hyper-parameter settings for building blocks which are described below:
 
-- **Dataset/Task**: Dataset containing samples with input prompts and reference sentences. Available datasets are found in the class `DataPoolRegistry` in  `rl4lms/envs/text_generation/registry.py`. (See how to create your own dataset [here](#adding-dataset))
+- **Dataset/Task**: Dataset containing samples with input prompts and reference sentences. Available datasets are found in the class `DataPoolRegistry` in [registry](https://github.com/allenai/RL4LMs/blob/main/rl4lms/envs/text_generation/registry.py). (See how to create your own dataset [here](#adding-dataset))
 
   ```yaml
   datapool:
@@ -81,7 +81,7 @@ Config file contains details about hyper-parameter settings for building blocks 
     truncation_side: left
     pad_token_as_eos_token: False
   ``` 
-- **Reward Function**: Reward function which computes token-level scores at each time step of MDP. Available reward functions can be found in the class `RewardFunctionRegistry` in  `rl4lms/envs/text_generation/registry.py`. (See how to create your own reward function [here](#adding-reward-function))
+- **Reward Function**: Reward function which computes token-level scores at each time step of MDP. Available reward functions can be found in the class `RewardFunctionRegistry`. (See how to create your own reward function [here](#adding-reward-function))
 
   ```yaml
   reward_fn:
@@ -90,7 +90,7 @@ Config file contains details about hyper-parameter settings for building blocks 
       rouge_type: "rouge1"
   ```
 
-- **Environment**: Configures a gym-style environment `rl4lms/envs/text_generation/env.py` which simulates MDP episodes. Rollouts are generated using train samples from dataset consisting of input and reference texts.
+- **Environment**: Configures a gym-style text generation [environment](https://github.com/allenai/RL4LMs/blob/main/rl4lms/envs/text_generation/registry.py) which simulates MDP episodes. Rollouts are generated using train samples from dataset consisting of input and reference texts.
 Further, we wrap our env with `SubProcVecEnv` from stable-baselines that processes `n_envs` episodes in parallel using multi-processing to compute step-wise rewards.  
 Further configuration settings include: 
   - `max_episode_length` : max length of the episode 
@@ -110,11 +110,11 @@ Further configuration settings include:
       context_start_token: 0
   ```
 
-- **On-policy alg**: We provide implementations of 4 on-policy algorithms: PPO, NLPO, A2C and TRPO adapted from [stable-baselines3](https://github.com/DLR-RM/stable-baselines3) tailored to work with NLP tasks which can be used out-of-the-box with either a causal policy or a seq2seq LM policy. (See how to create your own on-policy algorithm [here](#adding-custom-on-policy-algorithms) or policy [here](#adding-custom-policies))
-  - Supervised warm start models are already uploaded to Huggingface Hub and specified in the respective config files.
+- **On-policy alg**: We provide implementations of 4 on-policy algorithms: PPO, NLPO, A2C and TRPO adapted from [stable-baselines3](https://github.com/DLR-RM/stable-baselines3) tailored to work with NLP tasks which can be used out-of-the-box with either a causal policy or a seq2seq LM policy. (See how to create your own [on-policy algorithm](#adding-custom-on-policy-algorithms) or [policy](#adding-custom-policies))
+  - We also provide a supervised [trainer](https://github.com/allenai/RL4LMs/blob/2863116cd5860e4a4106a76486e70bfac25df2ba/rl4lms/envs/text_generation/training_utils.py#L225) for benchmarking purposes. Supervised Warm start models are already uploaded to Huggingface Hub and specified in the respective config files.
   - Hyper-parameters for the algorithm can be specified at `alg/args`. 
-  - Further, all algorithms use adaptive KL controller to keep the LM close to original LM by setting initial KL co-efficient (`alg/kl_div/coeff`) and target KL (`alg/kl_div/target_kl`). 
-  - We support two types of LM policy: **causal LM policy** (for decoder only models) and **seq2seq LM policy** (for encoder-decoder models). Further for NLPO, we also provide maskable variants of these. Policies are implemented in  `rl4lms/envs/text_generation/policy.py` and can be attached to algorithms by specifying `alg/policy/id` and `alg/policy/args`
+  - Further, all RL algorithms use adaptive KL controller to keep the LM close to original LM by setting initial KL co-efficient (`alg/kl_div/coeff`) and target KL (`alg/kl_div/target_kl`). 
+  - We support two types of LM policy: **causal LM policy** (for decoder only models) and **seq2seq LM policy** (for encoder-decoder models). Further for NLPO, we also provide maskable variants of these. Policy implementations can be found [here](https://github.com/allenai/RL4LMs/blob/main/rl4lms/envs/text_generation/policy.py) in and it can be attached to algorithms by specifying `alg/policy/id` and `alg/policy/args`
 
     ```yaml
     alg:
@@ -142,7 +142,7 @@ Further configuration settings include:
             max_new_tokens: 100          
     ```
 
-- **Trainer Config**: We provide an On-policy trainer (see class `OnPolicyTrainer` in `rl4lms/envs/text_generation/generation_utils.py`) - a feature-complete wrapper that instantiates building blocks from their corresponding configs and provides an outer training loop consisting of *train* and *eval* iterations `train_evaluation/n_iters`. 
+- **Trainer Config**: We provide an [On-policy trainer](https://github.com/allenai/RL4LMs/blob/2863116cd5860e4a4106a76486e70bfac25df2ba/rl4lms/envs/text_generation/training_utils.py#L126) - a feature-complete wrapper that instantiates building blocks from their corresponding configs and provides an outer training loop consisting of *train* and *eval* iterations `train_evaluation/n_iters`. 
   - Each iteration corresponds to performing updates with `alg/args/n_steps` x `env/n_envs` of the chosen algorithm. 
   - For every `eval_every` iters, LM is evaluated on validation split using metrics listed in `train_evaluation/metrics` with generation kwargs provided in `train_evaluation/generation_kwargs` (this overrides rollout `alg/policy/generation_kwargs` for inference purposes only)
 
@@ -283,16 +283,14 @@ Finally, just register your custom components by adding them to corresponding [r
 
 Additionally, we support WANDB logging and warm-starting of training by storing checkpoints and other training artifacts in a user-specified path. This is especially useful for running preemptible jobs on large, scheduled clusters.
 
-Artifacts include:
-- jsonl file containing rollout infos at specified intervals
-- jsonl file containing training infos at specified intervals
-- jsonl file containing validation metrics at specified intervals
-- jsonl file containing test metrics before and after training
-- json file with validation predictions at specified intervals
-- json file with test predictions before and after training
-- trained LM model
-- config json used to run the experiment
+Artifacts include (1) jsonl file containing rollout infos at specified intervals (2) jsonl file containing training infos at specified intervals (3) jsonl file containing validation metrics at specified intervals (4) jsonl file containing test metrics before and after training (5) json file with validation predictions at specified intervals (6) json file with test predictions before and after training (7) trained LM model (8) config json used to run the experiment
+
+Complete usage is as follows:
 
 ```bash 
-WANDB_API_KEY=<YOUR-WANDB-API-KEY-HERE>  python scripts/training/train_text_generation.py --config_path <PATH-TO-CONFIG-FILE> --experiment_name <EXPERIMENT-NAME> --base_path_to_store_results <PATH-TO-STORE-RESULTS> --log_to_wandb
+WANDB_API_KEY=<YOUR-WANDB-API-KEY-HERE>  python scripts/training/train_text_generation.py \
+--config_path <PATH-TO-CONFIG-FILE> \
+--experiment_name <EXPERIMENT-NAME> \
+--base_path_to_store_results <PATH-TO-STORE-RESULTS> \
+--log_to_wandb
 ```
