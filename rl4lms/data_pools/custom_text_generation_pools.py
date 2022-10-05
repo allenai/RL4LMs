@@ -287,7 +287,6 @@ def download_file_using_url(url: str, dest_path: str):
 class NarrativeQA(TextGenPool):
     @classmethod
     def normalize_text(cls, text, strip: bool):
-        # https: // github.com/allenai/unifiedqa/blob/7bf0653c6fb68a51019924fd4c51615155acbebe/tasks.py  # L54-L58
         text = text.lower()
         if strip:
             text = text.strip()

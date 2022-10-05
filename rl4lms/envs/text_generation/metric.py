@@ -520,9 +520,6 @@ class RougeLMax(BaseMetric):
         )
 
     def _rouge_max_over_ground_truths(self, prediction, ground_truths):
-        """
-        Computes max of Rouge-L (https://github.com/allenai/unifiedqa/blob/bad6ef339db6286f0d8bd0661a2daeeb0f800f59/evaluation/evaluate_narrativeqa.py#L25)
-        """
         # load stemmer
         self._metric.load_stemmer(self._metric.ensure_compatibility)
 
