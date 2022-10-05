@@ -10,7 +10,7 @@
 
 We provide easily customizable building blocks for training language models including implementations of **on-policy algorithms**, **reward functions**, **metrics**, **datasets** and **LM based actor-critic policies**
 
-Paper Link: https://arxiv.org/abs/2203.07540
+Paper Link: https://arxiv.org/abs/2210.01241
 
 Website Link: https://rl4lms.apps.allenai.org/
 
