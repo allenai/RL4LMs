@@ -23,6 +23,8 @@ class RewardFunction(ABC):
             current_observation (Observation): previous observation (s)
             action (int): action performed (a) at s
             next_observation (Observation): observation after the action was performed (s')
+            done (bool): whether the episode is finished or not
+            meta_info (dict) - other information regarding textual sample
         Returns:
             float: scalar reward
         """
