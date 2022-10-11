@@ -59,7 +59,7 @@ We provide a simple training API that can be invoked via train [script](https://
 For example, to train T5-base on CNN/DM summarization on PPO using Rouge-1 as reward function, you can run:
 
 ```bash
-python scripts/training/train_text_generation.py --config_path scripts/task_configs/summarization/t5_ppo.yml
+python scripts/training/train_text_generation.py --config_path scripts/training/task_configs/summarization/t5_ppo.yml
 ```
 
 Config files for all tasks can be found [here](https://github.com/allenai/RL4LMs/tree/main/scripts/training/task_configs).
