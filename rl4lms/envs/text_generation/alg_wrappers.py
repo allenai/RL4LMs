@@ -17,6 +17,7 @@ from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.utils import obs_as_tensor
 from stable_baselines3.common.vec_env import VecEnv
 from transformers import PreTrainedTokenizer
+from rl4lms.envs.text_generation.policy import PolicyType
 
 
 def unpack_observations(obs_tensor, n_envs: int):
@@ -139,36 +140,27 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
                 with torch.no_grad():
                     obs_tensor = obs_as_tensor(current_obs, self.device)
 
-                    # # get log probs from policy
-                    # _, cache_log_prob, _, _, policy_past_state = self.policy.forward_policy(
-                    #     obs_tensor, actions_tensor, policy_past_state)
+                    # for seq2seq policy
+                    if self.policy.get_policy_type() == PolicyType.SEQ2SEQ:
+                        # overrdide log probs without caching
+                        _, log_probs, _, _, _, _ = self.policy.forward_policy(
+                            obs_tensor, actions_tensor, action_mask)
 
-                    # _, without_cache_log_prob, _, _, policy_past_state = self.policy.forward_policy(
-                    #     obs_tensor, actions_tensor, None)
-                    # # sanity check 0 - rollout probs and policy probs must match
-                    # assert torch.allclose(cache_log_prob, log_probs, atol=1e-3)
+                        # get values without caching
+                        values, value_past_state = self.policy.forward_value(obs_tensor)
 
-                    # # sanity check 1 - log probs with and without cache must match
-                    # assert torch.allclose(
-                    #     cache_log_prob, without_cache_log_prob, atol=1e-3)
+                        # get reference log probs
+                        ref_log_probs, ref_past_state = self.policy.get_log_probs_ref_model(obs_tensor,
+                                                                                            actions_tensor)
+                    else: # causal policy
+                        # get values
+                        values, value_past_state = self.policy.forward_value(obs_tensor,
+                                                                            value_past_state)
 
-                    # get values
-                    values, value_past_state = self.policy.forward_value(obs_tensor,
-                                                                         value_past_state)
-
-                    # get reference log probs
-                    ref_log_probs, ref_past_state = self.policy.get_log_probs_ref_model(obs_tensor,
-                                                                                        actions_tensor,
-                                                                                        ref_past_state)
-
-                    # sanity check 2 (this is without caching - must match with values from generate which is with caching)
-                    # eval_values, eval_log_probs, _ = self.policy.evaluate_actions(
-                    #     obs_tensor, actions_tensor)
-
-                    # assert torch.allclose(
-                    #     eval_log_probs, without_cache_log_prob, atol=1e-3)
-                    # assert torch.allclose(
-                    #     eval_values, values, atol=1e-3)
+                        # get reference log probs
+                        ref_log_probs, ref_past_state = self.policy.get_log_probs_ref_model(obs_tensor,
+                                                                                            actions_tensor,
+                                                                                            ref_past_state)
 
                     # compute KL rewards
                     kl_div = log_probs - ref_log_probs
@@ -321,18 +313,6 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
             # adapt the KL coeff
             self._kl_controller.step(torch.tensor(
                 aggregated_rollout_info["rollout_info/kl_div_mean"]))
-
-            # sanity check 3: now, loop over the buffer
-            # and check the log_probs and values match
-            # for rollout_data in self.rollout_buffer.get(self.batch_size):
-            #     actions = rollout_data.actions.long().flatten()
-            #     values, log_prob, entropy = self.policy.evaluate_actions(
-            #         rollout_data.observations, actions)
-
-            #     assert torch.allclose(
-            #         values.flatten(), rollout_data.old_values.flatten(), atol=1e-4)
-            #     assert torch.allclose(
-            #         log_prob, rollout_data.old_log_prob, atol=1e-4)
             return True
 
     # instantiate the wrapped alg

@@ -1,0 +1,57 @@
+tokenizer:
+  model_name: facebook/bart-base
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: increasing_numbers
+  args:
+    min_tokens: 20
+
+datapool:
+  id: dummy_pool
+  args:
+    n_samples: 50
+    prompt: 'Generate some numbers 1 2'
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 5
+    max_episode_length: 20
+    terminate_on_eos: True
+    context_start_token: 2 # this is decoder start token
+
+alg:
+  id: ppo
+  args:
+    n_steps: 128
+    batch_size: 128
+    verbose: 1
+    learning_rate: 0.0000001
+    ent_coef: 0.0
+    n_epochs: 5
+  kl_div:
+    coeff: 0.0001
+    target_kl: 3
+  policy:
+    id: seq2seq_lm_actor_critic_policy
+    args:
+      model_name: facebook/bart-base
+      apply_model_parallel: False
+      generation_kwargs:
+        do_sample: True
+        min_length: 20
+        top_k: 50
+        max_new_tokens: 20  # this must align with env's max steps
+        num_beams: 1
+
+train_evaluation:
+  eval_batch_size: 256
+  n_iters: 100
+  eval_every: 10
+  save_every: 10
+  metrics:
+    - id: increasing_numbers
+      args:
+          min_tokens: 20

@@ -175,16 +175,6 @@ class PPO(OnPolicyAlgorithm):
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
-    # def verify_rollout_data(self, rollout_data):
-    #     for rollout_data in self.rollout_buffer.get(self.batch_size):
-    #         actions = rollout_data.actions.long().flatten()
-    #         values, log_prob, _ = self.policy.evaluate_actions(
-    #             rollout_data.observations, actions)
-
-    #         assert th.allclose(
-    #             values.flatten(), rollout_data.old_values.flatten(), atol=1e-4)
-    #         assert th.allclose(log_prob, rollout_data.old_log_prob, atol=1e-4)
-
     def train(self) -> None:
         """
         Update policy using the currently gathered rollout buffer.
@@ -232,9 +222,11 @@ class PPO(OnPolicyAlgorithm):
 
                 # ratio between old and new policy, should be one at the first iteration
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)
-                # if batch_ix == 0 and epoch == 0:
-                #     assert th.allclose(th.mean(ratio), th.tensor(
-                #         1.0)), f"Ratio is {th.mean(ratio)}"
+                if batch_ix == 0 and epoch == 0:
+                    assert th.allclose(th.mean(ratio), th.tensor(
+                        1.0), atol=1e-3), f"Ratio is {th.mean(ratio)}"
+
+                    assert th.allclose(values, rollout_data.old_values, atol=1e-3)
 
                 # clipped surrogate loss
                 policy_loss_1 = advantages * ratio

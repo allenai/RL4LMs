@@ -46,7 +46,7 @@ class TextGenEnv(Env):
         super().__init__()
 
         # set the observation and action space here
-        self._vocab_size = len(tokenizer.vocab)
+        self._vocab_size = tokenizer.vocab_size
         self.observation_space = DictSpace({
             # we have to provide fixed sized inputs (padded) because sb3 support for DictObsersevation is limited
             # while creating rollout buffers, observations are concatenated for each key
