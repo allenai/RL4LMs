@@ -1,22 +1,44 @@
-import imp
-from rl4lms.envs.text_generation.test_reward import RewardIncreasingNumbers, RewardSentencesWithDates
-from rl4lms.envs.text_generation.test_datapool import TestTextGenPool
-from rl4lms.envs.text_generation.metric import BaseMetric, LearnedRewardMetric, MeteorMetric, RougeMetric, BERTScoreMetric, BLEUMetric, BLEURTMetric, DiversityMetrics, SummaCZSMetric, SummaCConvMetric, Perplexity, CIDERMetric, SpiceMetric, ParentToTTo, BLEUToTTo, RougeLMax, SacreBLEUMetric, TERMetric, chrFmetric
-from rl4lms.data_pools.custom_text_generation_pools import IMDB, CommonGen, ToTTo, CNNDailyMail, IMDBForSeq2Seq, NarrativeQA, WMT, WMT14PreprocessedEnDe, WMT16NewsOnlyDatasetEnDe, IWSLT2017EnDe, CRD3DialogueGeneration
-from rl4lms.envs.text_generation.test_metric import IncreasingNumbersinText, DateInText
-from rl4lms.data_pools.text_generation_pool import TextGenPool
-from rl4lms.envs.text_generation.reward import RewardFunction, LearnedRewardFunction, MeteorRewardFunction, RougeRewardFunction, BERTScoreRewardFunction, BLEURewardFunction, BLEURTRewardFunction, RougeCombined, SpiderRewardFunction, CommonGenPenaltyShapingFunction, BatchedCommonGenPenaltyShapingFunction, PARENTRewardFunction, SacreBleu, RougeLMaxRewardFunction, TER, chrF
-from typing import Dict, Type, Any, Union
-from rl4lms.envs.text_generation.policy import BasePolicy, LMActorCriticPolicy, Seq2SeqLMActorCriticPolicy, MaskableLMActorCriticPolicy, MaskableSeq2SeqLMActorCriticPolicy
+from typing import Any, Dict, Type, Union
 
-from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
+
+from rl4lms.algorithms.a2c.a2c import A2C
 from rl4lms.algorithms.nlpo import NLPO
 from rl4lms.algorithms.ppo.ppo import PPO
 from rl4lms.algorithms.trpo import TRPO
-from rl4lms.algorithms.a2c.a2c import A2C
-from rl4lms.envs.text_generation.post_processors import three_sentence_summary
+from rl4lms.data_pools.custom_text_generation_pools import (
+    IMDB, WMT, CNNDailyMail, CommonGen, CRD3DialogueGeneration, IMDBForSeq2Seq,
+    IWSLT2017EnDe, NarrativeQA, ToTTo, WMT14PreprocessedEnDe,
+    WMT16NewsOnlyDatasetEnDe)
+from rl4lms.data_pools.text_generation_pool import TextGenPool
 from rl4lms.envs.text_generation.alg_wrappers import wrap_onpolicy_alg
+from rl4lms.envs.text_generation.metric import (BaseMetric, BERTScoreMetric,
+                                                BLEUMetric, BLEURTMetric,
+                                                BLEUToTTo, CIDERMetric,
+                                                DiversityMetrics,
+                                                LearnedRewardMetric,
+                                                MeteorMetric, ParentToTTo,
+                                                Perplexity, RougeLMax,
+                                                RougeMetric, SacreBLEUMetric,
+                                                SpiceMetric, SummaCConvMetric,
+                                                SummaCZSMetric, TERMetric,
+                                                chrFmetric)
+from rl4lms.envs.text_generation.policy.base_policy import LMActorCriticPolicy
+from rl4lms.envs.text_generation.policy.causal_policy import \
+    CausalLMActorCriticPolicy, MaskedCausalLMActorCriticPolicy
+from rl4lms.envs.text_generation.post_processors import three_sentence_summary
+from rl4lms.envs.text_generation.reward import (
+    TER, BatchedCommonGenPenaltyShapingFunction, BERTScoreRewardFunction,
+    BLEURewardFunction, BLEURTRewardFunction, CommonGenPenaltyShapingFunction,
+    LearnedRewardFunction, MeteorRewardFunction, PARENTRewardFunction,
+    RewardFunction, RougeCombined, RougeLMaxRewardFunction,
+    RougeRewardFunction, SacreBleu, SpiderRewardFunction, chrF)
+from rl4lms.envs.text_generation.test_datapool import TestTextGenPool
+from rl4lms.envs.text_generation.test_metric import (DateInText,
+                                                     IncreasingNumbersinText)
+from rl4lms.envs.text_generation.test_reward import (RewardIncreasingNumbers,
+                                                     RewardSentencesWithDates)
 
 
 class DataPoolRegistry:
@@ -112,19 +134,19 @@ class MetricRegistry:
 
 class PolicyRegistry:
     _registry = {
-        "causal_lm_actor_critic_policy": LMActorCriticPolicy,
-        "seq2seq_lm_actor_critic_policy": Seq2SeqLMActorCriticPolicy,
-        "maskable_causal_lm_actor_critic_policy": MaskableLMActorCriticPolicy,
-        "maskable_seq2seq_lm_actor_critic_policy": MaskableSeq2SeqLMActorCriticPolicy
+        "causal_lm_actor_critic_policy": CausalLMActorCriticPolicy,
+        #"seq2seq_lm_actor_critic_policy": Seq2SeqLMActorCriticPolicy,
+        "maskable_causal_lm_actor_critic_policy": MaskedCausalLMActorCriticPolicy,
+        #"maskable_seq2seq_lm_actor_critic_policy": MaskableSeq2SeqLMActorCriticPolicy
     }
 
     @classmethod
-    def get(cls, policy_id: str) -> Type[BasePolicy]:
+    def get(cls, policy_id: str) -> Type[LMActorCriticPolicy]:
         policy_cls = cls._registry[policy_id]
         return policy_cls
 
     @classmethod
-    def add(cls, id: str, policy_cls: Type[BasePolicy]):
+    def add(cls, id: str, policy_cls: Type[LMActorCriticPolicy]):
         PolicyRegistry._registry[id] = policy_cls
 
 

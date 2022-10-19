@@ -11,6 +11,7 @@ from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticP
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn
 from rl4lms.envs.text_generation.logging_utils import Tracker
+from rl4lms.envs.text_generation.policy.base_policy import EvaluateActionsOutput
 
 
 class PPO(OnPolicyAlgorithm):
@@ -211,8 +212,9 @@ class PPO(OnPolicyAlgorithm):
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
 
-                values, log_prob, entropy = self.policy.evaluate_actions(
+                evaluation_output: EvaluateActionsOutput = self.policy.evaluate_actions(
                     rollout_data.observations, actions)
+                values, log_prob, entropy = evaluation_output.values, evaluation_output.log_prob, evaluation_output.entropy
                 values = values.flatten()
                 # Normalize advantage
                 advantages = rollout_data.advantages
@@ -224,9 +226,9 @@ class PPO(OnPolicyAlgorithm):
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)
                 if batch_ix == 0 and epoch == 0:
                     assert th.allclose(th.mean(ratio), th.tensor(
-                        1.0), atol=1e-3), f"Ratio is {th.mean(ratio)}"
+                        1.0), atol=1e-3), "Cannot reconstruct probability distribution. Please check your policy network implementation"
 
-                    assert th.allclose(values, rollout_data.old_values, atol=1e-3)
+                    assert th.allclose(values, rollout_data.old_values, atol=1e-3), "Cannot reconstruct values. Please check your value network implementation"
 
                 # clipped surrogate loss
                 policy_loss_1 = advantages * ratio

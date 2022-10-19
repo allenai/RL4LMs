@@ -1,23 +1,25 @@
+from email import policy
+from email.policy import Policy
 from typing import Any, Dict, List, Tuple, Type
 
 import numpy as np
 import torch
-from rl4lms.algorithms.common.maskable.buffers import \
-    MaskableDictRolloutBuffer
-from rl4lms.envs.text_generation.kl_controllers import KLController
-from rl4lms.envs.text_generation.logging_utils import Tracker
-from rl4lms.envs.text_generation.reward import (BatchedRewardFunction,
-                                                RewardFunction)
-from rl4lms.envs.text_generation.warm_start import (OffPolicyWarmStartMixin,
-                                                    OnPolicyWarmStartMixin)
 from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.utils import obs_as_tensor
 from stable_baselines3.common.vec_env import VecEnv
 from transformers import PreTrainedTokenizer
-from rl4lms.envs.text_generation.policy import PolicyType
+
+from rl4lms.algorithms.common.maskable.buffers import MaskableDictRolloutBuffer
+from rl4lms.envs.text_generation.kl_controllers import KLController
+from rl4lms.envs.text_generation.logging_utils import Tracker
+from rl4lms.envs.text_generation.policy.base_policy import (PolicyOutput, PolicyType,
+                                                            RefPolicyOutput,
+                                                            ValueOutput)
+from rl4lms.envs.text_generation.reward import (BatchedRewardFunction,
+                                                RewardFunction)
+from rl4lms.envs.text_generation.warm_start import OnPolicyWarmStartMixin
 
 
 def unpack_observations(obs_tensor, n_envs: int):
@@ -34,8 +36,9 @@ def unpack_observations(obs_tensor, n_envs: int):
     return unpacked_obs
 
 
-def compute_batched_rewards(episode_wise_transitions: Dict[str, List[Tuple]],
-                            reward_fn: RewardFunction):
+def compute_batched_rewards(
+    episode_wise_transitions: Dict[str, List[Tuple]], reward_fn: RewardFunction
+):
     # first collect all the prompts, ref and gen texts
     prompts = []
     reference_texts = []
@@ -53,8 +56,7 @@ def compute_batched_rewards(episode_wise_transitions: Dict[str, List[Tuple]],
             indices.append((env_ix, trans_ix))
 
     # compute rewards all at once
-    rewards = reward_fn(
-        prompts, generated_texts, reference_texts, is_dones)
+    rewards = reward_fn(prompts, generated_texts, reference_texts, is_dones)
     rewards = rewards.numpy().flatten()
 
     # override the rewards in transitions
@@ -65,18 +67,23 @@ def compute_batched_rewards(episode_wise_transitions: Dict[str, List[Tuple]],
         episode_wise_transitions[env_ix][trans_ix] = tuple(transition)
 
 
-def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
-                      alg_kwargs: Dict[str, Any],
-                      kl_coeff: float,
-                      tracker: Tracker,
-                      target_kl: float = None,
-                      norm_reward: bool = False):
+def wrap_onpolicy_alg(
+    alg_class: Type[OnPolicyAlgorithm],
+    alg_kwargs: Dict[str, Any],
+    kl_coeff: float,
+    tracker: Tracker,
+    target_kl: float = None,
+    norm_reward: bool = False,
+):
     class OnPolicyAlgText(alg_class, OnPolicyWarmStartMixin):
-        def __init__(self, alg_kwargs: Dict[str, Any],
-                     kl_coeff: float,
-                     tracker: Tracker,
-                     target_kl: float = None,
-                     norm_reward: bool = False):
+        def __init__(
+            self,
+            alg_kwargs: Dict[str, Any],
+            kl_coeff: float,
+            tracker: Tracker,
+            target_kl: float = None,
+            norm_reward: bool = False,
+        ):
             alg_kwargs["tracker"] = tracker
             super().__init__(**alg_kwargs)
             self._kl_controller = KLController(kl_coeff, target_kl)
@@ -94,11 +101,13 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
             )
             self.reward_fn = self.env.get_attr("reward_function", 0)[0]
 
-        def generate_batch(self,
-                           rollout_buffer: DictRolloutBuffer,
-                           tokenizer: PreTrainedTokenizer,
-                           max_steps: int,
-                           rollout_info: Dict[str, Any]):
+        def generate_batch(
+            self,
+            rollout_buffer: DictRolloutBuffer,
+            tokenizer: PreTrainedTokenizer,
+            max_steps: int,
+            rollout_info: Dict[str, Any],
+        ):
             # if rollout buffer is already full, do not continue
             if rollout_buffer.full:
                 return
@@ -109,12 +118,12 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
 
             # generate text using the model
             obs_tensor = obs_as_tensor(current_obs, self.device)
-            input_ids, attention_masks = self.policy.get_inputs_for_generation(
-                obs_tensor)
-            gen_output = self.policy.generate(input_ids=input_ids,
-                                              attention_mask=attention_masks,
-                                              tokenizer=tokenizer,
-                                              )
+            generation_inputs = self.policy.get_inputs_for_generation(obs_tensor)
+            gen_output = self.policy.generate(
+                input_ids=generation_inputs.inputs,
+                attention_mask=generation_inputs.attention_masks,
+                tokenizer=tokenizer,
+            )
 
             # process them one step at a time to collect rollout info
             episode_wise_transitions = [[] for _ in range(self.env.num_envs)]
@@ -122,16 +131,11 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
             value_past_state = None
             ref_past_state = None
             policy_past_state = None
-            masks = gen_output.get(
-                "action_masks", [None] * len(gen_output["step_wise_logprobs"]))
-            for actions_tensor, log_probs, action_mask in zip(gen_output["step_wise_actions"],
-                                                              gen_output["step_wise_logprobs"],
-                                                              masks):
+            masks = gen_output.action_masks if gen_output.action_masks is not None else [None] * len(gen_output.step_wise_logprobs)
 
-                # sanity check
-                assert torch.all(torch.isfinite(log_probs)
-                                 ), "Infinite values in log probs"
-
+            for actions_tensor, _, action_mask in zip(
+                gen_output.step_wise_actions, gen_output.step_wise_logprobs, masks
+            ):
                 # if all episodes are done, just break and do not continue
                 if np.all(ep_terminated):
                     break
@@ -143,27 +147,75 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
                     # for seq2seq policy
                     if self.policy.get_policy_type() == PolicyType.SEQ2SEQ:
                         # overrdide log probs without caching
-                        _, log_probs, _, _, _, _ = self.policy.forward_policy(
-                            obs_tensor, actions_tensor, action_mask)
+                        (
+                            _,
+                            raw_log_probs,
+                            log_probs,
+                            _,
+                            _,
+                            _,
+                            _,
+                        ) = self.policy.forward_policy(
+                            obs_tensor, actions_tensor, action_mask
+                        )
 
                         # get values without caching
                         values, value_past_state = self.policy.forward_value(obs_tensor)
 
                         # get reference log probs
-                        ref_log_probs, ref_past_state = self.policy.get_log_probs_ref_model(obs_tensor,
-                                                                                            actions_tensor)
-                    else: # causal policy
+                        (
+                            ref_log_probs,
+                            ref_past_state,
+                        ) = self.policy.get_log_probs_ref_model(
+                            obs_tensor, actions_tensor
+                        )
+                    else:  # causal policy
+
+                        # get log probs
+                        policy_outputs: PolicyOutput = self.policy.forward_policy(
+                            obs_tensor, actions_tensor, action_mask, policy_past_state
+                        )
+                        raw_log_probs, log_probs, policy_past_state = (policy_outputs.raw_log_probs, 
+                            policy_outputs.log_probs, policy_outputs.past_model_kwargs
+                        )
+
+                        # sanity check
+                        assert torch.all(
+                            torch.isfinite(log_probs)
+                        ), "Infinite values in log probs"
+
+                        # sanity check
+                        assert torch.all(
+                            torch.isfinite(raw_log_probs)
+                        ), "Infinite values in log probs"
+
                         # get values
-                        values, value_past_state = self.policy.forward_value(obs_tensor,
-                                                                            value_past_state)
+                        value_outputs: ValueOutput = self.policy.forward_value(
+                            obs_tensor, value_past_state
+                        )
+                        values, value_past_state = (
+                            value_outputs.values,
+                            value_outputs.past_model_kwargs,
+                        )
 
                         # get reference log probs
-                        ref_log_probs, ref_past_state = self.policy.get_log_probs_ref_model(obs_tensor,
-                                                                                            actions_tensor,
-                                                                                            ref_past_state)
+                        ref_policy_outputs: RefPolicyOutput = (
+                            self.policy.get_log_probs_ref_model(
+                                obs_tensor, actions_tensor, ref_past_state
+                            )
+                        )
+                        ref_log_probs, ref_past_state = (
+                            ref_policy_outputs.log_probs,
+                            ref_policy_outputs.past_model_kwargs,
+                        )
+
+                        # sanity check
+                        assert torch.all(
+                            torch.isfinite(ref_log_probs)
+                        ), "Infinite values in log probs"
 
                     # compute KL rewards
-                    kl_div = log_probs - ref_log_probs
+                    kl_div = raw_log_probs - ref_log_probs
                     kl_rewards = -1 * self._kl_controller.kl_coeff * kl_div
 
                 # step into env to get rewards
@@ -176,8 +228,7 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
                 total_rewards = rewards + kl_rewards.cpu().numpy()
 
                 # unpack individual observations
-                unpacked_obs = unpack_observations(
-                    obs_tensor, self.env.num_envs)
+                unpacked_obs = unpack_observations(obs_tensor, self.env.num_envs)
 
                 # store episode wise transitions separately
                 for env_ix in range(self.env.num_envs):
@@ -186,20 +237,21 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
                         # TBD: change this DS to dict
                         episode_wise_transitions[env_ix].append(
                             (
-                                unpacked_obs[env_ix],             # 0
-                                actions[env_ix],                  # 1
-                                rewards[env_ix],                  # 2
-                                total_rewards[env_ix],            # 3
-                                kl_div.cpu().numpy()[env_ix],     # 4
-                                episode_starts[env_ix],           # 5
-                                values[env_ix].cpu(),             # 6
-                                log_probs[env_ix].cpu(),          # 7
-                                dones[env_ix],                    # 8
-                                ref_log_probs[env_ix].cpu(),      # 9
+                                unpacked_obs[env_ix],  # 0
+                                actions[env_ix],  # 1
+                                rewards[env_ix],  # 2
+                                total_rewards[env_ix],  # 3
+                                kl_div.cpu().numpy()[env_ix],  # 4
+                                episode_starts[env_ix],  # 5
+                                values[env_ix].cpu(),  # 6
+                                log_probs[env_ix].cpu(),  # 7
+                                dones[env_ix],  # 8
+                                ref_log_probs[env_ix].cpu(),  # 9
                                 kl_rewards.cpu().numpy()[env_ix],  # 10
-                                action_mask[env_ix].cpu().numpy(  # 11
-                                ) if action_mask is not None else None,
-                                infos[env_ix]                     # 12
+                                action_mask[env_ix].cpu().numpy()  # 11
+                                if action_mask is not None
+                                else None,
+                                infos[env_ix],  # 12
                             )
                         )
 
@@ -212,33 +264,54 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
 
             # now we flush all episode wise info to the 1-D buffer
             rollout_info = self._add_to_buffer(
-                rollout_buffer, episode_wise_transitions, rollout_info)
+                rollout_buffer, episode_wise_transitions, rollout_info
+            )
             return rollout_info
 
-        def _add_to_buffer(self, rollout_buffer, episode_wise_transitions, rollout_info):
+        def _add_to_buffer(
+            self, rollout_buffer, episode_wise_transitions, rollout_info
+        ):
             # if the reward function is batchable, we override the rewards here
             if isinstance(self.reward_fn, BatchedRewardFunction):
-                compute_batched_rewards(
-                    episode_wise_transitions, self.reward_fn)
+                compute_batched_rewards(episode_wise_transitions, self.reward_fn)
 
             advantages_computed = False
             for ep_ix, transitions in enumerate(episode_wise_transitions):
                 ep_length = len(transitions)
                 total_reward = 0.0
                 total_kl_reward = 0.0
-                for transition_ix, (obs, action, task_reward, reward, kl_div, ep_start, value, log_prob, done, ref_log_prob, kl_reward, action_mask, info) in enumerate(transitions):
+                for transition_ix, (
+                    obs,
+                    action,
+                    task_reward,
+                    reward,
+                    kl_div,
+                    ep_start,
+                    value,
+                    log_prob,
+                    done,
+                    ref_log_prob,
+                    kl_reward,
+                    action_mask,
+                    info,
+                ) in enumerate(transitions):
                     total_reward += task_reward
                     total_kl_reward += kl_reward
                     rollout_info["rollout_info/kl_div_mean"].append(kl_div)
                     rollout_info["rollout_info/log_prob"].append(log_prob)
-                    rollout_info["rollout_info/ref_log_prob"].append(
-                        ref_log_prob)
+                    rollout_info["rollout_info/ref_log_prob"].append(ref_log_prob)
                     rollout_info["rollout_info/values"].append(value.numpy())
 
                     if not rollout_buffer.full:
-                        rollout_buffer.add(obs, action, reward,
-                                           ep_start, value, log_prob,
-                                           action_masks=action_mask)
+                        rollout_buffer.add(
+                            obs,
+                            action,
+                            reward,
+                            ep_start,
+                            value,
+                            log_prob,
+                            action_masks=action_mask,
+                        )
 
                     # if the buffer is full, compute advantages
                     if rollout_buffer.full and not advantages_computed:
@@ -247,16 +320,21 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
                         if self._norm_reward:
                             mean = rollout_buffer.rewards.mean()
                             std = rollout_buffer.rewards.std()
-                            rollout_buffer.rewards = (
-                                rollout_buffer.rewards - mean) / (std + 1e-8)
+                            rollout_buffer.rewards = (rollout_buffer.rewards - mean) / (
+                                std + 1e-8
+                            )
 
                         # we fetch the last value for the last time step
                         # values come from the next transitions's values
-                        next_values = transitions[transition_ix +
-                                                  1][6] if (transition_ix + 1) < ep_length else torch.tensor([0.0])
+                        next_values = (
+                            transitions[transition_ix + 1][6]
+                            if (transition_ix + 1) < ep_length
+                            else torch.tensor([0.0])
+                        )
 
                         rollout_buffer.compute_returns_and_advantage(
-                            last_values=next_values, dones=done)
+                            last_values=next_values, dones=done
+                        )
                         advantages_computed = True
 
                 rollout_info["rollout_info/ep_rew"].append(total_reward)
@@ -271,9 +349,8 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
             rollout_buffer: RolloutBuffer,
             n_rollout_steps: int,
         ) -> bool:
-           # max episode steps
-            max_steps = env.unwrapped.get_attr(
-                "max_steps", [0])[0]
+            # max episode steps
+            max_steps = env.unwrapped.get_attr("max_steps", [0])[0]
 
             # get tokenizer
             tokenizer = env.unwrapped.get_attr("tokenizer", [0])
@@ -293,29 +370,32 @@ def wrap_onpolicy_alg(alg_class: Type[OnPolicyAlgorithm],
                 "rollout_info/ep_kl_rew": [],
                 "rollout_info/log_prob": [],
                 "rollout_info/ref_log_prob": [],
-                "rollout_info/values": []
+                "rollout_info/values": [],
             }
             while not rollout_buffer.full:
                 # generate batch of rollouts
-                rollout_info = self.generate_batch(rollout_buffer, tokenizer,
-                                                   max_steps, rollout_info)
+                rollout_info = self.generate_batch(
+                    rollout_buffer, tokenizer, max_steps, rollout_info
+                )
 
             # aggregate rollout info
             aggregated_rollout_info = {}
             for key, values in rollout_info.items():
                 aggregated_rollout_info[key] = np.mean(values).item()
                 aggregated_rollout_info[f"{key}_std"] = np.std(values).item()
-            aggregated_rollout_info["rollout_info/kl_coeff"] = self._kl_controller.kl_coeff
+            aggregated_rollout_info[
+                "rollout_info/kl_coeff"
+            ] = self._kl_controller.kl_coeff
 
             if self.tracker is not None:
                 self.tracker.log_rollout_infos(aggregated_rollout_info)
 
             # adapt the KL coeff
-            self._kl_controller.step(torch.tensor(
-                aggregated_rollout_info["rollout_info/kl_div_mean"]))
+            self._kl_controller.step(
+                torch.tensor(aggregated_rollout_info["rollout_info/kl_div_mean"])
+            )
             return True
 
     # instantiate the wrapped alg
-    alg = OnPolicyAlgText(alg_kwargs, kl_coeff, tracker,
-                          target_kl, norm_reward)
+    alg = OnPolicyAlgText(alg_kwargs, kl_coeff, tracker, target_kl, norm_reward)
     return alg

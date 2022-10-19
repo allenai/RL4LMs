@@ -21,6 +21,7 @@ from rl4lms.algorithms.common.maskable.policies import MaskableActorCriticPolicy
 from rl4lms.algorithms.common.maskable.utils import get_action_masks, is_masking_supported
 from rl4lms.algorithms.nlpo.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
 from rl4lms.envs.text_generation.logging_utils import Tracker
+from rl4lms.envs.text_generation.policy.base_policy import EvaluateActionsOutput
 
 
 class NLPO(OnPolicyAlgorithm):
@@ -340,11 +341,9 @@ class NLPO(OnPolicyAlgorithm):
                     # Convert discrete action from float to long
                     actions = rollout_data.actions.long().flatten()
 
-                values, log_prob, entropy = self.policy.evaluate_actions(
-                    rollout_data.observations,
-                    actions,
-                    action_masks=rollout_data.action_masks,
-                )
+                evaluation_output: EvaluateActionsOutput = self.policy.evaluate_actions(
+                    rollout_data.observations, actions, action_masks=rollout_data.action_masks)
+                values, log_prob, entropy = evaluation_output.values, evaluation_output.log_prob, evaluation_output.entropy
 
                 values = values.flatten()
                 # Normalize advantage
@@ -357,9 +356,9 @@ class NLPO(OnPolicyAlgorithm):
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)
                 if batch_ix == 0 and epoch == 0:
                     assert th.allclose(th.mean(ratio), th.tensor(
-                        1.0), atol=1e-3), f"Ratio is {th.mean(ratio)}"
+                        1.0), atol=1e-3), "Cannot reconstruct probability distribution. Please check your policy network implementation"
 
-                    assert th.allclose(values, rollout_data.old_values, atol=1e-3)
+                    assert th.allclose(values, rollout_data.old_values, atol=1e-3), "Cannot reconstruct values. Please check your value network implementation"
 
                 # clipped surrogate loss
                 policy_loss_1 = advantages * ratio

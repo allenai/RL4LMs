@@ -1,8 +1,10 @@
-from typing import Dict, Any
-from rl4lms.envs.text_generation.policy import BasePolicy
-from rl4lms.envs.text_generation.logging_utils import Tracker
 import os
+from typing import Any, Dict
+
 import torch
+
+from rl4lms.envs.text_generation.logging_utils import Tracker
+from rl4lms.envs.text_generation.policy.base_policy import LMActorCriticPolicy
 
 ################## Policy Warm Start Mixins#######################################
 
@@ -114,7 +116,7 @@ class TrainerWarmStartMixin:
         try:
             if recent_ckpt_path is not None:
                 state_dict = torch.load(
-                    recent_ckpt_path, map_location=torch.device("cuda"), pickle_protocol=4)
+                    recent_ckpt_path, map_location=torch.device("cuda"))
                 tracker.log_info("Model checkpoint found - Warm starting")
                 self._policy_state_dict = state_dict["policy_state"]
                 self._alg_state_dict = state_dict["alg_state"]
@@ -128,7 +130,8 @@ class TrainerWarmStartMixin:
                 self._trainer_state = {
                     "current_iter": 0,
                 }
-        except:
+        except Exception as e:
+            tracker.log_info(f"Exception while doing warm start {e}")
             tracker.log_info(
                 f"Checkpoint may be corrupted...skipping warm start")
             self._policy_state_dict = None
@@ -138,7 +141,7 @@ class TrainerWarmStartMixin:
             }
 
     def save_trainer_state(self, tracker: Tracker,
-                           policy: BasePolicy,
+                           policy: LMActorCriticPolicy,
                            trainer_state: Dict[str, Any]):
         full_state = {
             "alg_state": self._alg.get_state_dict(),

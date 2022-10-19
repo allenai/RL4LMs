@@ -1031,9 +1031,10 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
         # get log probs
         dist = self._action_dist.proba_distribution(
             action_logits=next_token_logits)
+        raw_log_probs = dist.log_prob(actions)
         if action_masks is not None:
             dist.apply_masking(action_masks)
-        log_prob = dist.log_prob(actions)
+        log_probs = dist.log_prob(actions)
         entropy = dist.entropy()
 
         # update the model kwargs for further generation
@@ -1042,7 +1043,7 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
         )
         model_kwargs["decoder_attention_mask"] = torch.cat(
             (decoder_attn_mask, torch.ones(batch_size, 1).to(decoder_attn_mask.device)), dim=-1)
-        return actions, log_prob, entropy, outputs, action_masks, model_kwargs
+        return actions, raw_log_probs, log_probs, entropy, outputs, action_masks, model_kwargs
 
     def forward_value(self, obs: TensorDict,
                       model_kwargs: Optional[Dict[str, torch.tensor]] = None):
