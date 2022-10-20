@@ -1,15 +1,22 @@
 from copy import deepcopy
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 from gym.spaces import Discrete
 from gym.spaces.dict import Dict as DictSpace
-from stable_baselines3.common.type_aliases import Schedule, TensorDict
 from stable_baselines3.common.distributions import CategoricalDistribution
+from stable_baselines3.common.type_aliases import Schedule, TensorDict
 from torch import nn
 from torch.distributions import Categorical
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.modeling_utils import unwrap_model
 
+from rl4lms.algorithms.common.maskable.distributions import (
+    MaskableCategoricalDistribution,
+)
+from rl4lms.algorithms.common.maskable.logits_processor import (
+    MaskLogitsProcessorCasualLM,
+)
 from rl4lms.envs.text_generation.hf_generation_utils import override_generation_routines
 from rl4lms.envs.text_generation.policy.base_policy import (
     EvaluateActionsOutput,
@@ -24,12 +31,6 @@ from rl4lms.envs.text_generation.policy.base_policy import (
 from rl4lms.envs.text_generation.warm_start import (
     ActorCriticWarmStartMixin,
     MaskableActorCriticWarmStartMixin,
-)
-from rl4lms.algorithms.common.maskable.distributions import (
-    MaskableCategoricalDistribution,
-)
-from rl4lms.algorithms.common.maskable.logits_processor import (
-    MaskLogitsProcessorCasualLM,
 )
 
 
@@ -78,13 +79,19 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         )
 
         # apply model parallel
-        if torch.cuda.is_available() and self._apply_model_parallel:
-            if self._policy_model.is_parallelizable:
+        if torch.cuda.is_available():
+            if self._apply_model_parallel and self._policy_model.is_parallelizable:
                 self._policy_model.parallelize()
                 self._ref_model.parallelize()
-            if self._value_model.is_parallelizable:
                 self._value_model.parallelize()
-        self._value_head = self._value_head.to(self.device)
+                self._value_head = self._value_head.to(self.device)
+            else:  # else defaults to data parallel
+                self._policy_model = torch.nn.DataParallel(self._policy_model)
+                self._ref_model = torch.nn.DataParallel(self._ref_model)
+                self._value_model = torch.nn.DataParallel(self._value_model)
+                self._value_head = torch.nn.DataParallel(
+                    self._value_head.to(self.device)
+                )
 
     def _prepare_inputs_for_model(
         self,
@@ -92,9 +99,11 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         input_ids: torch.tensor,
         model_kwargs: Optional[Dict[str, torch.tensor]] = None,
     ):
-        model_inputs = model.prepare_inputs_for_generation(input_ids, **model_kwargs)
+        model_inputs = unwrap_model(model).prepare_inputs_for_generation(
+            input_ids, **model_kwargs
+        )
 
-        if self._apply_model_parallel:
+        if self._apply_model_parallel and unwrap_model(model).parallelizable:
             # if model is in parallel mode, move the tensors to the first device
             model_inputs = {
                 key: value.to(model.transformer.first_device)
@@ -136,10 +145,14 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         log_prob = dist.log_prob(actions)
 
         # update the model kwargs for further generation
-        past_model_kwargs = self._policy_model._update_model_kwargs_for_generation(
+        past_model_kwargs = unwrap_model(
+            self._policy_model
+        )._update_model_kwargs_for_generation(
             output,
             past_model_kwargs,
-            is_encoder_decoder=self._policy_model.config.is_encoder_decoder,
+            is_encoder_decoder=unwrap_model(
+                self._policy_model
+            ).config.is_encoder_decoder,
         )
 
         policy_outputs = PolicyOutput(
@@ -178,10 +191,14 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         values = self._value_head.forward(last_tokens_hidden)
 
         # update the model kwargs for further generation
-        past_model_kwargs = self._value_model._update_model_kwargs_for_generation(
+        past_model_kwargs = unwrap_model(
+            self._value_model
+        )._update_model_kwargs_for_generation(
             output,
             past_model_kwargs,
-            is_encoder_decoder=self._value_model.config.is_encoder_decoder,
+            is_encoder_decoder=unwrap_model(
+                self._value_model
+            ).config.is_encoder_decoder,
         )
 
         value_outputs = ValueOutput(values=values, past_model_kwargs=past_model_kwargs)
@@ -226,7 +243,9 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         log_prob = dist.log_prob(action)
 
         # update the model kwargs for further generation
-        past_model_kwargs = self._ref_model._update_model_kwargs_for_generation(
+        past_model_kwargs = unwrap_model(
+            self._ref_model
+        )._update_model_kwargs_for_generation(
             output,
             past_model_kwargs,
             is_encoder_decoder=self.is_encoder_decoder(self._ref_model),
@@ -239,7 +258,8 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         return (
             self._policy_model.transformer.first_device
             if self._apply_model_parallel
-            else self._policy_model.device
+            and unwrap_model(self._policy_model).is_parallelizable
+            else "cuda"
         )
 
     def get_inputs_for_generation(self, obs: TensorDict):
@@ -312,9 +332,14 @@ class MaskedCausalLMActorCriticPolicy(
         else:
             self._mask_model = self._ref_model.eval()
 
-        if torch.cuda.is_available() and self._apply_model_parallel:
-            if self._policy_model.is_parallelizable:
+        if torch.cuda.is_available():
+            if (
+                unwrap_model(self._mask_model).is_parallelizable
+                and self._apply_model_parallel
+            ):
                 self._mask_model.parallelize()
+            else:
+                self._mask_model = torch.nn.DataParallel(self._mask_model)
 
         self.logits_processor = MaskLogitsProcessorCasualLM(
             self._mask_model,
@@ -488,7 +513,7 @@ class MaskedCausalLMActorCriticPolicy(
         # then it has to be adjusted to input_size + min_length
         if (
             "min_length" in gen_kwargs.keys()
-            and not self._policy_model.config.is_encoder_decoder
+            and not unwrap_model(self._policy_model).config.is_encoder_decoder
         ):
             generation_kwargs_ = deepcopy(gen_kwargs)
             generation_kwargs_["min_length"] = (
@@ -498,7 +523,7 @@ class MaskedCausalLMActorCriticPolicy(
             generation_kwargs_ = gen_kwargs
 
         # generate
-        gen_output = self._policy_model.generate(
+        gen_output = unwrap_model(self._policy_model).generate(
             inputs=input_ids.to(self.get_policy_first_device()),
             attention_mask=attention_mask.to(self.get_policy_first_device()),
             return_dict_in_generate=True,

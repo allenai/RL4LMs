@@ -1,10 +1,7 @@
-from email.policy import Policy
-from enum import Enum
-from typing import Any, Dict, Optional, Tuple, List, Union
+from typing import Any, Dict, Optional, List, Union
 import torch
 from gym.spaces import Discrete
 from gym.spaces.dict import Dict as DictSpace
-from stable_baselines3.common.policies import BasePolicy
 from torch import nn
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from stable_baselines3.common.distributions import CategoricalDistribution
@@ -398,8 +395,11 @@ class MaskedSeq2SeqLMActorCriticPolicy(
         else:
             self._mask_model = self._ref_model.eval()
 
-        if torch.cuda.is_available() and self._apply_model_parallel:
-            if self._policy_model.is_parallelizable:
+        if torch.cuda.is_available():
+            if (
+                self._apply_model_parallel
+                and unwrap_model(self._mask_model).is_parallelizable
+            ):
                 self._mask_model.parallelize()
 
         self.logits_processor = MaskLogitsProcessorSeq2SeqLM(
@@ -428,19 +428,17 @@ class MaskedSeq2SeqLMActorCriticPolicy(
             past_model_kwargs = {
                 "attention_mask": obs["prompt_or_input_attention_mask_pt"],
             }
-            (
-                inputs_tensor,
-                model_input_name,
-                past_model_kwargs,
-            ) = self._policy_model._prepare_model_inputs(
+            (inputs_tensor, model_input_name, past_model_kwargs,) = unwrap_model(
+                self._policy_model
+            )._prepare_model_inputs(
                 obs["prompt_or_input_encoded_pt"].int(), None, past_model_kwargs
             )
 
             # 2. prepare encoder outputs
-            past_model_kwargs = (
-                self._policy_model._prepare_encoder_decoder_kwargs_for_generation(
-                    inputs_tensor, past_model_kwargs, model_input_name
-                )
+            past_model_kwargs = unwrap_model(
+                self._policy_model
+            )._prepare_encoder_decoder_kwargs_for_generation(
+                inputs_tensor, past_model_kwargs, model_input_name
             )
 
             # 3. Prepare input_ids for auto-regressive generation
@@ -590,7 +588,7 @@ class MaskedSeq2SeqLMActorCriticPolicy(
         # then it has to be adjusted to input_size + min_length
         if (
             "min_length" in gen_kwargs.keys()
-            and not self._policy_model.config.is_encoder_decoder
+            and not unwrap_model(self._policy_model).config.is_encoder_decoder
         ):
             generation_kwargs_ = deepcopy(gen_kwargs)
             generation_kwargs_["min_length"] = (
@@ -600,7 +598,7 @@ class MaskedSeq2SeqLMActorCriticPolicy(
             generation_kwargs_ = gen_kwargs
 
         # generate
-        gen_output = self._policy_model.generate(
+        gen_output = unwrap_model(self._policy_model).generate(
             inputs=input_ids.to(self.get_policy_first_device()),
             attention_mask=attention_mask.to(self.get_policy_first_device()),
             return_dict_in_generate=True,

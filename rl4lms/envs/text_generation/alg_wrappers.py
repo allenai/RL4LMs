@@ -1,5 +1,4 @@
-from email import policy
-from email.policy import Policy
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Type
 
 import numpy as np
@@ -24,6 +23,23 @@ from rl4lms.envs.text_generation.reward import BatchedRewardFunction, RewardFunc
 from rl4lms.envs.text_generation.warm_start import OnPolicyWarmStartMixin
 
 
+@dataclass
+class TransitionInfo:
+    observation: TensorDict
+    action: np.ndarray
+    task_reward: np.ndarray
+    total_reward: np.ndarray
+    kl_div: np.ndarray
+    episode_start: np.ndarray
+    value: torch.Tensor
+    log_prob: torch.Tensor
+    done: np.ndarray
+    ref_log_prob: torch.Tensor
+    kl_reward: np.ndarray
+    action_mask: np.ndarray
+    info: Dict[str, Any]
+
+
 def unpack_observations(obs_tensor, n_envs: int):
     """
     Unpacks vectorized dict observations into separate dict observations
@@ -39,7 +55,7 @@ def unpack_observations(obs_tensor, n_envs: int):
 
 
 def compute_batched_rewards(
-    episode_wise_transitions: Dict[str, List[Tuple]], reward_fn: RewardFunction
+    episode_wise_transitions: List[List[TransitionInfo]], reward_fn: RewardFunction
 ):
     # first collect all the prompts, ref and gen texts
     prompts = []
@@ -49,8 +65,8 @@ def compute_batched_rewards(
     indices = []
     for env_ix, transitions in enumerate(episode_wise_transitions):
         for trans_ix, transition in enumerate(transitions):
-            done = transition[8]
-            info = transition[12]
+            done = transition.done
+            info = transition.info
             prompts.append(info["prompt_text"])
             reference_texts.append(info["reference_text"])
             generated_texts.append(info["output"])
@@ -236,26 +252,25 @@ def wrap_onpolicy_alg(
                 for env_ix in range(self.env.num_envs):
                     # only if not terminated already
                     if not ep_terminated[env_ix]:
-                        # TBD: change this DS to dict
-                        episode_wise_transitions[env_ix].append(
-                            (
-                                unpacked_obs[env_ix],  # 0
-                                actions[env_ix],  # 1
-                                rewards[env_ix],  # 2
-                                total_rewards[env_ix],  # 3
-                                kl_div.cpu().numpy()[env_ix],  # 4
-                                episode_starts[env_ix],  # 5
-                                values[env_ix].cpu(),  # 6
-                                log_probs[env_ix].cpu(),  # 7
-                                dones[env_ix],  # 8
-                                ref_log_probs[env_ix].cpu(),  # 9
-                                kl_rewards.cpu().numpy()[env_ix],  # 10
-                                action_mask[env_ix].cpu().numpy()  # 11
-                                if action_mask is not None
-                                else None,
-                                infos[env_ix],  # 12
-                            )
+                        transtion = TransitionInfo(
+                            observation=unpacked_obs[env_ix],
+                            action=actions[env_ix],
+                            task_reward=rewards[env_ix],
+                            total_reward=total_rewards[env_ix],
+                            kl_div=kl_div.cpu().numpy()[env_ix],
+                            episode_start=episode_starts[env_ix],
+                            value=values[env_ix].cpu(),
+                            log_prob=log_probs[env_ix].cpu(),
+                            done=dones[env_ix],
+                            ref_log_prob=ref_log_probs[env_ix].cpu(),
+                            kl_reward=kl_rewards.cpu().numpy()[env_ix],
+                            action_mask=action_mask[env_ix].cpu().numpy()
+                            if action_mask is not None
+                            else None,
+                            info=infos[env_ix],
                         )
+
+                        episode_wise_transitions[env_ix].append(transtion)
 
                     # mark this episode to terminated if done occurs once
                     if dones[env_ix]:
@@ -282,37 +297,25 @@ def wrap_onpolicy_alg(
                 ep_length = len(transitions)
                 total_reward = 0.0
                 total_kl_reward = 0.0
-                for transition_ix, (
-                    obs,
-                    action,
-                    task_reward,
-                    reward,
-                    kl_div,
-                    ep_start,
-                    value,
-                    log_prob,
-                    done,
-                    ref_log_prob,
-                    kl_reward,
-                    action_mask,
-                    info,
-                ) in enumerate(transitions):
-                    total_reward += task_reward
-                    total_kl_reward += kl_reward
-                    rollout_info["rollout_info/kl_div_mean"].append(kl_div)
-                    rollout_info["rollout_info/log_prob"].append(log_prob)
-                    rollout_info["rollout_info/ref_log_prob"].append(ref_log_prob)
-                    rollout_info["rollout_info/values"].append(value.numpy())
+                for transition_ix, transition in enumerate(transitions):
+                    total_reward += transition.task_reward
+                    total_kl_reward += transition.kl_reward
+                    rollout_info["rollout_info/kl_div_mean"].append(transition.kl_div)
+                    rollout_info["rollout_info/log_prob"].append(transition.log_prob)
+                    rollout_info["rollout_info/ref_log_prob"].append(
+                        transition.ref_log_prob
+                    )
+                    rollout_info["rollout_info/values"].append(transition.value.numpy())
 
                     if not rollout_buffer.full:
                         rollout_buffer.add(
-                            obs,
-                            action,
-                            reward,
-                            ep_start,
-                            value,
-                            log_prob,
-                            action_masks=action_mask,
+                            transition.observation,
+                            transition.action,
+                            transition.total_reward,
+                            transition.episode_start,
+                            transition.value,
+                            transition.log_prob,
+                            action_masks=transition.action_mask,
                         )
 
                     # if the buffer is full, compute advantages
@@ -329,13 +332,13 @@ def wrap_onpolicy_alg(
                         # we fetch the last value for the last time step
                         # values come from the next transitions's values
                         next_values = (
-                            transitions[transition_ix + 1][6]
+                            transitions[transition_ix + 1].value
                             if (transition_ix + 1) < ep_length
                             else torch.tensor([0.0])
                         )
 
                         rollout_buffer.compute_returns_and_advantage(
-                            last_values=next_values, dones=done
+                            last_values=next_values, dones=transition.done
                         )
                         advantages_computed = True
 

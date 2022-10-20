@@ -263,7 +263,7 @@ class LMActorCriticPolicy(BasePolicy):
         return gen_output
 
     def get_language_model(self):
-        return self._policy_model
+        return unwrap_model(self._policy_model)
 
     # Following methods need to be implemented by sub-classing
     @abstractmethod
