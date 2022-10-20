@@ -8,17 +8,19 @@ from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.utils import obs_as_tensor
+from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.vec_env import VecEnv
 from transformers import PreTrainedTokenizer
 
 from rl4lms.algorithms.common.maskable.buffers import MaskableDictRolloutBuffer
 from rl4lms.envs.text_generation.kl_controllers import KLController
 from rl4lms.envs.text_generation.logging_utils import Tracker
-from rl4lms.envs.text_generation.policy.base_policy import (PolicyOutput, PolicyType,
-                                                            RefPolicyOutput,
-                                                            ValueOutput)
-from rl4lms.envs.text_generation.reward import (BatchedRewardFunction,
-                                                RewardFunction)
+from rl4lms.envs.text_generation.policy.base_policy import (
+    PolicyOutput,
+    RefPolicyOutput,
+    ValueOutput,
+)
+from rl4lms.envs.text_generation.reward import BatchedRewardFunction, RewardFunction
 from rl4lms.envs.text_generation.warm_start import OnPolicyWarmStartMixin
 
 
@@ -101,6 +103,23 @@ def wrap_onpolicy_alg(
             )
             self.reward_fn = self.env.get_attr("reward_function", 0)[0]
 
+        def get_policy_kwargs(
+            self,
+            obs: TensorDict,
+            action: torch.tensor,
+            past_state: Dict[str, torch.tensor],
+            action_mask: torch.tensor,
+        ):
+
+            policy_kwargs = {
+                "obs": obs,
+                "actions": action,
+                "past_model_kwargs": past_state,
+            }
+            if action_mask is not None:
+                policy_kwargs["action_masks"] = action_mask
+            return policy_kwargs
+
         def generate_batch(
             self,
             rollout_buffer: DictRolloutBuffer,
@@ -131,7 +150,11 @@ def wrap_onpolicy_alg(
             value_past_state = None
             ref_past_state = None
             policy_past_state = None
-            masks = gen_output.action_masks if gen_output.action_masks is not None else [None] * len(gen_output.step_wise_logprobs)
+            masks = (
+                gen_output.action_masks
+                if gen_output.action_masks is not None
+                else [None] * len(gen_output.step_wise_logprobs)
+            )
 
             for actions_tensor, _, action_mask in zip(
                 gen_output.step_wise_actions, gen_output.step_wise_logprobs, masks
@@ -144,75 +167,54 @@ def wrap_onpolicy_alg(
                 with torch.no_grad():
                     obs_tensor = obs_as_tensor(current_obs, self.device)
 
-                    # for seq2seq policy
-                    if self.policy.get_policy_type() == PolicyType.SEQ2SEQ:
-                        # overrdide log probs without caching
-                        (
-                            _,
-                            raw_log_probs,
-                            log_probs,
-                            _,
-                            _,
-                            _,
-                            _,
-                        ) = self.policy.forward_policy(
-                            obs_tensor, actions_tensor, action_mask
-                        )
+                    # get log probs (TBD: generalize this a bit)
+                    policy_kwargs = self.get_policy_kwargs(
+                        obs_tensor, actions_tensor, policy_past_state, action_mask
+                    )
 
-                        # get values without caching
-                        values, value_past_state = self.policy.forward_value(obs_tensor)
+                    policy_outputs: PolicyOutput = self.policy.forward_policy(
+                        **policy_kwargs
+                    )
+                    raw_log_probs, log_probs, policy_past_state = (
+                        policy_outputs.raw_log_probs,
+                        policy_outputs.log_probs,
+                        policy_outputs.past_model_kwargs,
+                    )
 
-                        # get reference log probs
-                        (
-                            ref_log_probs,
-                            ref_past_state,
-                        ) = self.policy.get_log_probs_ref_model(
-                            obs_tensor, actions_tensor
-                        )
-                    else:  # causal policy
+                    # sanity check
+                    assert torch.all(
+                        torch.isfinite(log_probs)
+                    ), "Infinite values in log probs"
 
-                        # get log probs
-                        policy_outputs: PolicyOutput = self.policy.forward_policy(
-                            obs_tensor, actions_tensor, action_mask, policy_past_state
-                        )
-                        raw_log_probs, log_probs, policy_past_state = (policy_outputs.raw_log_probs, 
-                            policy_outputs.log_probs, policy_outputs.past_model_kwargs
-                        )
+                    # sanity check
+                    assert torch.all(
+                        torch.isfinite(raw_log_probs)
+                    ), "Infinite values in log probs"
 
-                        # sanity check
-                        assert torch.all(
-                            torch.isfinite(log_probs)
-                        ), "Infinite values in log probs"
+                    # get values
+                    value_outputs: ValueOutput = self.policy.forward_value(
+                        obs_tensor, value_past_state
+                    )
+                    values, value_past_state = (
+                        value_outputs.values,
+                        value_outputs.past_model_kwargs,
+                    )
 
-                        # sanity check
-                        assert torch.all(
-                            torch.isfinite(raw_log_probs)
-                        ), "Infinite values in log probs"
+                    # get reference log probs
+                    ref_policy_outputs: RefPolicyOutput = (
+                        self.policy.get_log_probs_ref_model(
+                            obs_tensor, actions_tensor, ref_past_state
+                        )
+                    )
+                    ref_log_probs, ref_past_state = (
+                        ref_policy_outputs.log_probs,
+                        ref_policy_outputs.past_model_kwargs,
+                    )
 
-                        # get values
-                        value_outputs: ValueOutput = self.policy.forward_value(
-                            obs_tensor, value_past_state
-                        )
-                        values, value_past_state = (
-                            value_outputs.values,
-                            value_outputs.past_model_kwargs,
-                        )
-
-                        # get reference log probs
-                        ref_policy_outputs: RefPolicyOutput = (
-                            self.policy.get_log_probs_ref_model(
-                                obs_tensor, actions_tensor, ref_past_state
-                            )
-                        )
-                        ref_log_probs, ref_past_state = (
-                            ref_policy_outputs.log_probs,
-                            ref_policy_outputs.past_model_kwargs,
-                        )
-
-                        # sanity check
-                        assert torch.all(
-                            torch.isfinite(ref_log_probs)
-                        ), "Infinite values in log probs"
+                    # sanity check
+                    assert torch.all(
+                        torch.isfinite(ref_log_probs)
+                    ), "Infinite values in log probs"
 
                     # compute KL rewards
                     kl_div = raw_log_probs - ref_log_probs

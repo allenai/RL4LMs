@@ -231,7 +231,7 @@ class LMActorCriticPolicy(BasePolicy):
             attention_mask=attention_mask.to(self.get_policy_first_device()),
             return_dict_in_generate=True,
             output_scores=True,
-            **generation_kwargs_
+            **generation_kwargs_,
         )
 
         # number of tokens generated
@@ -261,7 +261,7 @@ class LMActorCriticPolicy(BasePolicy):
             step_wise_logprobs, step_wise_actions, gen_tokens, gen_texts
         )
         return gen_output
-    
+
     def get_language_model(self):
         return self._policy_model
 
@@ -363,12 +363,5 @@ class LMActorCriticPolicy(BasePolicy):
     def get_inputs_for_generation(self, obs: TensorDict) -> GenerationInputs:
         """
         Extracts the prompt inputs and attention masks which is used as seed for generation
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def to(self, device: str):
-        """
-        Sends model to device
         """
         raise NotImplementedError
