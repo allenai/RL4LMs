@@ -53,7 +53,7 @@ train_evaluation:
   eval_batch_size: 256
   n_iters: 50
   eval_every: 10
-  save_every: 1
+  save_every: 10
   metrics:
     - id: learned_reward
       args:

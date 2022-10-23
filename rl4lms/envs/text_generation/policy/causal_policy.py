@@ -122,6 +122,9 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         input_ids = obs["input_encoded_pt"].int()
         attention_mask = obs["input_attention_mask_pt"]
 
+        # disable cache 
+        past_model_kwargs = None
+
         # prepare inputs
         if not past_model_kwargs:
             # take attention mask only for the first step
@@ -173,6 +176,9 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
 
         input_ids = obs["input_encoded_pt"].int()
         attention_mask = obs["input_attention_mask_pt"]
+
+        # disable cache 
+        past_model_kwargs = None
 
         # prepare inputs
         if not past_model_kwargs:
@@ -229,6 +235,9 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
 
         input_ids = obs["input_encoded_pt"]
         attention_mask = obs["input_attention_mask_pt"]
+
+        # disable cache 
+        past_model_kwargs = None
 
         if not past_model_kwargs:
             past_model_kwargs = {
@@ -393,6 +402,9 @@ class MaskedCausalLMActorCriticPolicy(
     ):
         input_ids = obs["input_encoded_pt"].int()
         attention_mask = obs["input_attention_mask_pt"]
+
+        # disable cache 
+        past_model_kwargs = None
 
         # prepare inputs
         if not past_model_kwargs:
