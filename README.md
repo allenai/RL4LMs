@@ -312,3 +312,9 @@ WANDB_API_KEY=<YOUR-WANDB-API-KEY-HERE>  python scripts/training/train_text_gene
   year={2022}
 }
 ```
+
+# Questions/Discussion/Ideas?
+
+For discussion, questions, ideas exchange, join our slack channel 
+[![Slack](https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white)](https://join.slack.com/t/slack-1sa3880/shared_invite/zt-1idqlnbnm-NIiZeMIOpYReXfX9uIT_PA)
+
