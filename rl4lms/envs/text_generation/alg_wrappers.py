@@ -79,10 +79,8 @@ def compute_batched_rewards(
 
     # override the rewards in transitions
     for (env_ix, trans_ix), reward in zip(indices, rewards):
-        transition = list(episode_wise_transitions[env_ix][trans_ix])
-        transition[2] = reward
-        transition[3] = reward + transition[10]
-        episode_wise_transitions[env_ix][trans_ix] = tuple(transition)
+        episode_wise_transitions[env_ix][trans_ix].task_reward = reward
+        episode_wise_transitions[env_ix][trans_ix].total_reward = reward + episode_wise_transitions[env_ix][trans_ix].kl_reward
 
 
 def wrap_onpolicy_alg(
