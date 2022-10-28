@@ -151,7 +151,7 @@ class TrainerWarmStartMixin:
         _, recent_ckpt_id = self._get_recent_ckpt_path(tracker)
 
         # hot fix - just to save only the last checkpoint (overwrite)
-        new_ckpt_id = 0 if recent_ckpt_id is None else recent_ckpt_id
+        new_ckpt_id = 0 if recent_ckpt_id is None else recent_ckpt_id + 1
         new_ckpt_path = os.path.join(
             tracker.checkpoint_base_path, f"checkpoint_{new_ckpt_id}")
         torch.save(full_state, new_ckpt_path, pickle_protocol=4)
