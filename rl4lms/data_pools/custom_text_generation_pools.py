@@ -547,7 +547,38 @@ class CRD3DialogueGeneration(TextGenPool):
         return dp_instance
 
 
+class DailyDialog(TextGenPool):
+    EOU_TOKEN = "<EOU>"
+    @classmethod
+    def prepare(cls, split: str, context_size: int):
+        split = CommonGen.gen_split_name(split)
+        dataset = load_dataset("daily_dialog", split=split)
+        samples = []
+        utterance_id = 0
+        for item in dataset:
+            contexts = []
+            for utterance, emotion, intent in zip(item["dialog"],
+                                                  item["emotion"],
+                                                  item["act"]):
+                if len(contexts) >= context_size:
+                    context = DailyDialog.EOU_TOKEN.join(contexts[-context_size:]) 
+                    context += " " + DailyDialog.EOU_TOKEN
+                    sample = Sample(id=utterance_id, 
+                                    prompt_or_input_text=context, 
+                                    references=[utterance],
+                                    meta_data={
+                                        "emotion": [emotion],
+                                        "intent": [intent]
+                                    })
+                    samples.append(sample)
+                contexts.append(utterance)
+                utterance_id += 1
+
+        dp_instance = cls(samples)
+        return dp_instance
+
+
 if __name__ == "__main__":
-    dp = CRD3DialogueGeneration.prepare("test", 5)
+    dp = DailyDialog.prepare("val", 5)
     print(dp[1000])
     print(len(dp))
