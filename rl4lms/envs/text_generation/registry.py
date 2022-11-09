@@ -19,6 +19,7 @@ from rl4lms.data_pools.custom_text_generation_pools import (
     ToTTo,
     WMT14PreprocessedEnDe,
     WMT16NewsOnlyDatasetEnDe,
+    DailyDialog
 )
 from rl4lms.data_pools.text_generation_pool import TextGenPool
 from rl4lms.envs.text_generation.alg_wrappers import wrap_onpolicy_alg
@@ -93,6 +94,7 @@ class DataPoolRegistry:
         "wmt16newsonly": WMT16NewsOnlyDatasetEnDe,
         "iwslt2017en_de": IWSLT2017EnDe,
         "crd3": CRD3DialogueGeneration,
+        "daily_dialog": DailyDialog
     }
 
     @classmethod
