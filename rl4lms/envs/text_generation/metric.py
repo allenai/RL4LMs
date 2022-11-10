@@ -650,7 +650,7 @@ class IntentAccuracyDailyDialog(BaseMetric):
                         for prompt, gen in zip(prompt_texts, generated_texts)]
 
         # extract target intents
-        target_intents = [info["intent"] - 1 for info in meta_infos]    
+        target_intents = [info["intent"][0] - 1 for info in meta_infos]    
         
         # tokenize
         encoded = self._tokenizer(
@@ -660,16 +660,16 @@ class IntentAccuracyDailyDialog(BaseMetric):
                     padding=True)
 
         with torch.no_grad():
-            outputs = self._model(input_ids=encoded.input_ids,
-                                    attention_mask=encoded.attention_mask)
+            outputs = self._model(input_ids=encoded.input_ids.to(self._device),
+                                    attention_mask=encoded.attention_mask.to(self._device))
             pred_labels = torch.argmax(outputs.logits, dim=1).tolist()
 
 
-        matching_scores = pred_labels == target_intents
-        intent_accuracy = sum(matching_scores) / len(pred_labels)
+        matching_scores = (np.array(pred_labels) == np.array(target_intents)).astype(np.int32)
+        intent_accuracy = np.mean(matching_scores)
 
         metric_dict = {
-            "intent/accuracy": (matching_scores, intent_accuracy)
+            "intent/accuracy": (matching_scores.tolist(), intent_accuracy)
         }
         return metric_dict     
          

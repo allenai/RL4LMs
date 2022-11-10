@@ -27,13 +27,19 @@ alg:
   model_name: gpt2
   generation_kwargs:
     do_sample: True
-    min_length: 10
-    max_new_tokens: 50
+    min_length: 2
+    max_new_tokens: 20
     post_processing_fn: null
 
 train_evaluation:
   eval_batch_size: 256
   metrics:
+    - id: intent_accuracy
+    - id: causal_perplexity
+      args:
+        tokenizer_id: gpt2
+        stride: 128
+        model_type: causal
     - id: diversity
       args: {}
     - id: meteor
