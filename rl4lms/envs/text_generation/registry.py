@@ -42,6 +42,7 @@ from rl4lms.envs.text_generation.metric import (
     SummaCZSMetric,
     TERMetric,
     chrFmetric,
+    IntentAccuracyDailyDialog
 )
 from rl4lms.envs.text_generation.policy.base_policy import LMActorCriticPolicy
 from rl4lms.envs.text_generation.policy.causal_policy import (
@@ -160,6 +161,7 @@ class MetricRegistry:
         "sacre_bleu": SacreBLEUMetric,
         "ter": TERMetric,
         "chrf": chrFmetric,
+        "intent_accuracy": IntentAccuracyDailyDialog
     }
 
     @classmethod

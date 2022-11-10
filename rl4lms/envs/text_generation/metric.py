@@ -12,6 +12,7 @@ from rl4lms.envs.text_generation.caption_metrics.spice.spice import Spice
 from gem_metrics.texts import Predictions
 from rl4lms.envs.text_generation.summ_metrics.summa_c import SummaCConv, SummaCZS
 from rl4lms.data_pools.task_utils.totto.eval_utils import compute_parent, compute_bleu
+from rl4lms.data_pools.custom_text_generation_pools import DailyDialog
 from tqdm import tqdm
 import copy
 import rouge
@@ -620,6 +621,58 @@ class chrFmetric(BaseMetric):
             "lexical/chrf": (None, score)
         }
         return metric_dict
+
+class IntentAccuracyDailyDialog(BaseMetric):
+    def __init__(self) -> None:
+        super().__init__()
+        self._tokenizer = AutoTokenizer.from_pretrained("rajkumarrrk/roberta-daily-dialog-intent-classifier")
+        self._model = AutoModelForSequenceClassification.from_pretrained("rajkumarrrk/roberta-daily-dialog-intent-classifier")
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._device = f"cuda:{torch.cuda.device_count() - 1}"
+        self._model = self._model.to(self._device)
+
+    def compute(self,
+                prompt_texts: List[str],
+                generated_texts: List[str],
+                reference_texts: List[List[str]],
+                meta_infos: List[Dict[str, Any]] = None,
+                model: PreTrainedModel = None,
+                split_name: str = None) -> Tuple[List[float], float]:
+        def get_input_for_classifier(prompt, generated_text):
+            history = prompt.split(DailyDialog.EOU_TOKEN)
+            history = [utt for utt in history if utt != ""]
+            last_utterance = history[-1]
+            input_text = last_utterance + generated_text
+            return input_text
+
+        # we have to extract the history utterances
+        input_texts = [get_input_for_classifier(prompt, gen) 
+                        for prompt, gen in zip(prompt_texts, generated_texts)]
+
+        # extract target intents
+        target_intents = [info["intent"] - 1 for info in meta_infos]    
+        
+        # tokenize
+        encoded = self._tokenizer(
+                    input_texts,
+                    return_tensors="pt",
+                    truncation=True,
+                    padding=True)
+
+        with torch.no_grad():
+            outputs = self._model(input_ids=encoded.input_ids,
+                                    attention_mask=encoded.attention_mask)
+            pred_labels = torch.argmax(outputs.logits, dim=1).tolist()
+
+
+        matching_scores = pred_labels == target_intents
+        intent_accuracy = sum(matching_scores) / len(pred_labels)
+
+        metric_dict = {
+            "intent/accuracy": (matching_scores, intent_accuracy)
+        }
+        return metric_dict     
+         
 
 
 if __name__ == "__main__":
