@@ -19,7 +19,7 @@ from rl4lms.data_pools.custom_text_generation_pools import (
     ToTTo,
     WMT14PreprocessedEnDe,
     WMT16NewsOnlyDatasetEnDe,
-    DailyDialog
+    DailyDialog,
 )
 from rl4lms.data_pools.text_generation_pool import TextGenPool
 from rl4lms.envs.text_generation.alg_wrappers import wrap_onpolicy_alg
@@ -43,7 +43,7 @@ from rl4lms.envs.text_generation.metric import (
     SummaCZSMetric,
     TERMetric,
     chrFmetric,
-    IntentAccuracyDailyDialog
+    IntentAccuracyDailyDialog,
 )
 from rl4lms.envs.text_generation.policy.base_policy import LMActorCriticPolicy
 from rl4lms.envs.text_generation.policy.causal_policy import (
@@ -72,6 +72,7 @@ from rl4lms.envs.text_generation.reward import (
     SacreBleu,
     SpiderRewardFunction,
     chrF,
+    IntentAccuracy,
 )
 from rl4lms.envs.text_generation.test_datapool import TestTextGenPool
 from rl4lms.envs.text_generation.test_metric import DateInText, IncreasingNumbersinText
@@ -95,7 +96,7 @@ class DataPoolRegistry:
         "wmt16newsonly": WMT16NewsOnlyDatasetEnDe,
         "iwslt2017en_de": IWSLT2017EnDe,
         "crd3": CRD3DialogueGeneration,
-        "daily_dialog": DailyDialog
+        "daily_dialog": DailyDialog,
     }
 
     @classmethod
@@ -128,6 +129,7 @@ class RewardFunctionRegistry:
         "rouge_l_max": RougeLMaxRewardFunction,
         "ter": TER,
         "chrf": chrF,
+        "intent_accuracy": IntentAccuracy,
     }
 
     @classmethod
@@ -163,7 +165,7 @@ class MetricRegistry:
         "sacre_bleu": SacreBLEUMetric,
         "ter": TERMetric,
         "chrf": chrFmetric,
-        "intent_accuracy": IntentAccuracyDailyDialog
+        "intent_accuracy": IntentAccuracyDailyDialog,
     }
 
     @classmethod

@@ -63,6 +63,7 @@ def compute_batched_rewards(
     generated_texts = []
     is_dones = []
     indices = []
+    meta_infos = []
     for env_ix, transitions in enumerate(episode_wise_transitions):
         for trans_ix, transition in enumerate(transitions):
             done = transition.done
@@ -71,16 +72,19 @@ def compute_batched_rewards(
             reference_texts.append(info["reference_text"])
             generated_texts.append(info["output"])
             is_dones.append(done)
+            meta_infos.append(info["meta_info"])
             indices.append((env_ix, trans_ix))
 
     # compute rewards all at once
-    rewards = reward_fn(prompts, generated_texts, reference_texts, is_dones)
-    rewards = rewards.numpy().flatten()
+    rewards = reward_fn(prompts, generated_texts, reference_texts, is_dones, meta_infos)
+    # rewards = rewards.numpy().flatten()
 
     # override the rewards in transitions
     for (env_ix, trans_ix), reward in zip(indices, rewards):
         episode_wise_transitions[env_ix][trans_ix].task_reward = reward
-        episode_wise_transitions[env_ix][trans_ix].total_reward = reward + episode_wise_transitions[env_ix][trans_ix].kl_reward
+        episode_wise_transitions[env_ix][trans_ix].total_reward = (
+            reward + episode_wise_transitions[env_ix][trans_ix].kl_reward
+        )
 
 
 def wrap_onpolicy_alg(

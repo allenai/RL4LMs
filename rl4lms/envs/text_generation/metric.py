@@ -20,13 +20,15 @@ import rouge
 
 class BaseMetric:
     @abstractmethod
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None):
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ):
         """
         Returns a dict where key is the metric name and value is again a dict consisting of tuple of individual scores (if any) and corpus level score
 
@@ -40,47 +42,57 @@ class BaseMetric:
 
 
 class LearnedRewardMetric(BaseMetric):
-    def __init__(self, model_name: str,
-                 label_ix: int,
-                 batch_size: int,
-                 include_prompt_for_eval: bool = True) -> None:
+    def __init__(
+        self,
+        model_name: str,
+        label_ix: int,
+        batch_size: int,
+        include_prompt_for_eval: bool = True,
+    ) -> None:
         super().__init__()
         self._device = "cuda" if torch.cuda.is_available() else "cpu"
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
         self._tokenizer.truncation_side = "left"
-        self._model = AutoModelForSequenceClassification.from_pretrained(
-            model_name).to(self._device)
+        self._model = AutoModelForSequenceClassification.from_pretrained(model_name).to(
+            self._device
+        )
         self._label_ix = label_ix
         self._batch_size = batch_size
         self._include_prompt_for_eval = include_prompt_for_eval
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Dict[str, float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Dict[str, float]:
         all_scores = []
         current_ix = 0
         n_texts = len(generated_texts)
         while current_ix < n_texts:
-            batch_gen_texts = generated_texts[current_ix:current_ix +
-                                              self._batch_size]
-            batch_prompt_texts = prompt_texts[current_ix:current_ix +
-                                              self._batch_size]
+            batch_gen_texts = generated_texts[
+                current_ix : current_ix + self._batch_size
+            ]
+            batch_prompt_texts = prompt_texts[
+                current_ix : current_ix + self._batch_size
+            ]
 
             if self._include_prompt_for_eval:
-                batch_gen_texts = [(prompt + gen) for gen,
-                                   prompt in zip(batch_gen_texts, batch_prompt_texts)]
+                batch_gen_texts = [
+                    (prompt + gen)
+                    for gen, prompt in zip(batch_gen_texts, batch_prompt_texts)
+                ]
             encoded = self._tokenizer(
-                batch_gen_texts,
-                return_tensors="pt",
-                truncation=True,
-                padding=True)
+                batch_gen_texts, return_tensors="pt", truncation=True, padding=True
+            )
             with torch.no_grad():
-                outputs = self._model(input_ids=encoded.input_ids.to(self._device),
-                                      attention_mask=encoded.attention_mask.to(self._device))
+                outputs = self._model(
+                    input_ids=encoded.input_ids.to(self._device),
+                    attention_mask=encoded.attention_mask.to(self._device),
+                )
                 scores = torch.softmax(outputs.logits, dim=1)
                 scores = scores[:, self._label_ix].tolist()
                 all_scores.extend(scores)
@@ -97,20 +109,21 @@ class MeteorMetric(BaseMetric):
         super().__init__()
         self._metric = load_metric("meteor")
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None):
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ):
 
         score = self._metric.compute(
-            predictions=generated_texts, references=reference_texts)["meteor"]
+            predictions=generated_texts, references=reference_texts
+        )["meteor"]
 
-        metric_dict = {
-            "lexical/meteor": (None, score)
-        }
+        metric_dict = {"lexical/meteor": (None, score)}
         return metric_dict
 
 
@@ -120,13 +133,15 @@ class RougeMetric(BaseMetric):
         self._metric = load_metric("rouge")
         self._use_single_ref = use_single_ref
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None):
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ):
         if self._use_single_ref:
             # TBD: this is required for CNN/DM dataset, without this we get low scores
             # TBD: needs investigation
@@ -135,9 +150,8 @@ class RougeMetric(BaseMetric):
             ref_texts = reference_texts
 
         metric_results = self._metric.compute(
-            predictions=generated_texts,
-            references=ref_texts,
-            use_stemmer=True)
+            predictions=generated_texts, references=ref_texts, use_stemmer=True
+        )
         score_keys = ["rouge1", "rouge2", "rougeL", "rougeLsum"]
         metric_dict = {}
         for rouge_type in score_keys:
@@ -154,24 +168,25 @@ class BERTScoreMetric(BaseMetric):
         # since models are loaded heavily on cuda:0, use the last one to avoid memory
         self._last_gpu = f"cuda:{torch.cuda.device_count() - 1}"
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         with torch.no_grad():
             metric_results = self._metric.compute(
                 predictions=generated_texts,
                 references=reference_texts,
                 lang=self._language,
-                device=self._last_gpu)
+                device=self._last_gpu,
+            )
             bert_scores = metric_results["f1"]
             corpus_level_score = np.mean(bert_scores)
-            metric_dict = {
-                "semantic/bert_score": (bert_scores, corpus_level_score)
-            }
+            metric_dict = {"semantic/bert_score": (bert_scores, corpus_level_score)}
             return metric_dict
 
 
@@ -180,13 +195,15 @@ class BLEUMetric(BaseMetric):
         super().__init__()
         self._metric = load_metric("bleu")
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
 
         tokenized_predictions = []
         tokenized_reference_texts = []
@@ -197,17 +214,14 @@ class BLEUMetric(BaseMetric):
             tokenized_reference_texts.append(tokenized_refs)
 
         try:
-            metric_results = self._metric.compute(predictions=tokenized_predictions,
-                                                  references=tokenized_reference_texts)
+            metric_results = self._metric.compute(
+                predictions=tokenized_predictions, references=tokenized_reference_texts
+            )
             bleu_score = metric_results["bleu"]
-            metric_dict = {
-                "lexical/bleu": (None, bleu_score)
-            }
+            metric_dict = {"lexical/bleu": (None, bleu_score)}
             return metric_dict
         except Exception as e:
-            return {
-                "lexical/bleu": (None, "n/a")
-            }
+            return {"lexical/bleu": (None, "n/a")}
 
 
 class BLEURTMetric(BaseMetric):
@@ -215,41 +229,43 @@ class BLEURTMetric(BaseMetric):
         super().__init__()
         self._metric = load_metric("bleurt", config_name=config_name)
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         metric_results = self._metric.compute(
-            predictions=generated_texts,
-            references=reference_texts)
+            predictions=generated_texts, references=reference_texts
+        )
         corpus_score = np.mean(metric_results["scores"])
-        metric_dict = {
-            "semantic/bleurt": (metric_results["scores"], corpus_score)
-        }
+        metric_dict = {"semantic/bleurt": (metric_results["scores"], corpus_score)}
         return metric_dict
 
 
 def get_generated_and_predictions(
-        prompt_texts: List[str],
-        generated_texts: List[str],
-        reference_texts: List[List[str]],
-        split_name: str):
+    prompt_texts: List[str],
+    generated_texts: List[str],
+    reference_texts: List[List[str]],
+    split_name: str,
+):
     split_name = "" if split_name is None else split_name
     preds = {}
     refs = {}
-    for ix, (prompt_text, gen_text, ref_text) in enumerate(zip(prompt_texts,
-                                                               generated_texts,
-                                                               reference_texts)):
+    for ix, (prompt_text, gen_text, ref_text) in enumerate(
+        zip(prompt_texts, generated_texts, reference_texts)
+    ):
         preds[split_name + prompt_text] = [gen_text]
         refs[split_name + prompt_text] = ref_text
     return preds, refs
 
 
-def get_individual_scores(prompt_texts: List[str], split_name: str,
-                          scores_dict: Dict[str, float]):
+def get_individual_scores(
+    prompt_texts: List[str], split_name: str, scores_dict: Dict[str, float]
+):
     split_name = "" if split_name is None else split_name
     scores = []
     for prompt_text in prompt_texts:
@@ -261,23 +277,27 @@ class CIDERMetric(BaseMetric):
     def __init__(self) -> None:
         self._metric = Cider()
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         predictions, references = get_generated_and_predictions(
-            prompt_texts, generated_texts, reference_texts, split_name)
-        corpus_score, individual_scores, = self._metric.compute_score(
-            references, predictions)
+            prompt_texts, generated_texts, reference_texts, split_name
+        )
+        (
+            corpus_score,
+            individual_scores,
+        ) = self._metric.compute_score(references, predictions)
         individual_scores = get_individual_scores(
-            prompt_texts, split_name, individual_scores)
+            prompt_texts, split_name, individual_scores
+        )
 
-        metric_dict = {
-            "lexical/cider": (individual_scores, corpus_score)
-        }
+        metric_dict = {"lexical/cider": (individual_scores, corpus_score)}
         return metric_dict
 
 
@@ -285,24 +305,28 @@ class SpiceMetric(BaseMetric):
     def __init__(self) -> None:
         self._metric = Spice()
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         predictions, references = get_generated_and_predictions(
-            prompt_texts, generated_texts, reference_texts, split_name)
-        corpus_score, individual_scores, = self._metric.compute_score(
-            references, predictions)
+            prompt_texts, generated_texts, reference_texts, split_name
+        )
+        (
+            corpus_score,
+            individual_scores,
+        ) = self._metric.compute_score(references, predictions)
 
         individual_scores = get_individual_scores(
-            prompt_texts, split_name, individual_scores)
+            prompt_texts, split_name, individual_scores
+        )
 
-        metric_dict = {
-            "lexical/spice": (individual_scores, corpus_score)
-        }
+        metric_dict = {"lexical/spice": (individual_scores, corpus_score)}
         return metric_dict
 
 
@@ -311,16 +335,17 @@ class DiversityMetrics(BaseMetric):
         self._msttr_metric = MSTTR(window_size=window_size)
         self._n_gram_metric = NGramStats()
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
 
-        predictions = Predictions(
-            data={"filename": "", "values": generated_texts})
+        predictions = Predictions(data={"filename": "", "values": generated_texts})
         diversity_metrics = {}
         msttr_metrics = self._msttr_metric.compute(None, predictions)
         n_gram_metrics = self._n_gram_metric.compute(None, predictions)
@@ -344,18 +369,18 @@ class SummaCZSMetric(BaseMetric):
         super().__init__()
         self._scorer = SummaCZS(**kwargs)
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         metric_results = self._scorer.score(prompt_texts, generated_texts)
         corpus_score = np.mean(metric_results["scores"])
-        metric_dict = {
-            "consistency/summaczs": (metric_results["scores"], corpus_score)
-        }
+        metric_dict = {"consistency/summaczs": (metric_results["scores"], corpus_score)}
         return metric_dict
 
 
@@ -370,13 +395,15 @@ class SummaCConvMetric(BaseMetric):
         super().__init__()
         self._scorer = SummaCConv(**kwargs)
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         metric_results = self._scorer.score(prompt_texts, generated_texts)
         corpus_score = np.mean(metric_results["scores"])
         metric_dict = {
@@ -386,10 +413,13 @@ class SummaCConvMetric(BaseMetric):
 
 
 class Perplexity(BaseMetric):
-    def __init__(self, stride: int,
-                 tokenizer_id: str,
-                 model_type: str = "causal",
-                 use_text_from_meta_data: bool = False) -> None:
+    def __init__(
+        self,
+        stride: int,
+        tokenizer_id: str,
+        model_type: str = "causal",
+        use_text_from_meta_data: bool = False,
+    ) -> None:
         super().__init__()
         self._tokenizer_id = tokenizer_id
         self._model_type = model_type
@@ -402,13 +432,15 @@ class Perplexity(BaseMetric):
         except:
             return model.device
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         if split_name == "train":
             return {}
 
@@ -421,8 +453,7 @@ class Perplexity(BaseMetric):
         else:
             reference_texts = [ref for refs in reference_texts for ref in refs]
         tokenizer = AutoTokenizer.from_pretrained(self._tokenizer_id)
-        encodings = tokenizer("\n\n".join(
-            reference_texts), return_tensors="pt")
+        encodings = tokenizer("\n\n".join(reference_texts), return_tensors="pt")
 
         device = self.get_device(model)
 
@@ -445,7 +476,10 @@ class Perplexity(BaseMetric):
             nlls.append(neg_log_likelihood)
 
         return {
-            "fluency_metrics/perplexity": (None, torch.exp(torch.stack(nlls).sum() / end_loc).item())
+            "fluency_metrics/perplexity": (
+                None,
+                torch.exp(torch.stack(nlls).sum() / end_loc).item(),
+            )
         }
 
 
@@ -454,28 +488,29 @@ class ParentToTTo:
     Official version
     """
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]],
-                model: PreTrainedModel = None,
-                split_name: str = None):
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]],
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ):
         tables = [info["raw_table"] for info in meta_infos]
         parent_overall, parent_overlap, parent_non_overlap = compute_parent(
-            generated_texts, tables)
+            generated_texts, tables
+        )
 
-        metric_results = {
-
-        }
-        metric_names = ["parent_overall",
-                        "parent_overlap", "parent_non_overlap"]
+        metric_results = {}
+        metric_names = ["parent_overall", "parent_overlap", "parent_non_overlap"]
         metric_values = [parent_overall, parent_overlap, parent_non_overlap]
         for name, value in zip(metric_names, metric_values):
             metric_results[f"table_to_text/{name}/precision"] = (
-                None, value["precision"])
-            metric_results[f"table_to_text/{name}/recall"] = (
-                None, value["recall"])
+                None,
+                value["precision"],
+            )
+            metric_results[f"table_to_text/{name}/recall"] = (None, value["recall"])
 
             # individual f-scores - fetch only for overall since we don't know for which samples
             if name == "parent_overall":
@@ -484,7 +519,9 @@ class ParentToTTo:
                 f_scores = None
 
             metric_results[f"table_to_text/{name}_f_score"] = (
-                f_scores, value["f_score"])
+                f_scores,
+                value["f_score"],
+            )
         return metric_results
 
 
@@ -493,22 +530,24 @@ class BLEUToTTo:
     Official version
     """
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]],
-                model: PreTrainedModel = None,
-                split_name: str = None):
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]],
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ):
         tables = [info["raw_table"] for info in meta_infos]
         bleu_overall, bleu_overlap, bleu_non_overlap = compute_bleu(
-            generated_texts, tables)
+            generated_texts, tables
+        )
 
         metric_results = {
             "table_to_text/bleu_overall": (None, bleu_overall),
             "table_to_text/bleu_overlap": (None, bleu_overlap),
-            "table_to_text/bleu_non_overlap": (None, bleu_non_overlap)
-
+            "table_to_text/bleu_non_overlap": (None, bleu_non_overlap),
         }
         return metric_results
 
@@ -516,9 +555,7 @@ class BLEUToTTo:
 class RougeLMax(BaseMetric):
     def __init__(self, **args) -> None:
         super().__init__()
-        self._metric = rouge.Rouge(
-            metrics=["rouge-l"], **args
-        )
+        self._metric = rouge.Rouge(metrics=["rouge-l"], **args)
 
     def _rouge_max_over_ground_truths(self, prediction, ground_truths):
         """
@@ -532,26 +569,24 @@ class RougeLMax(BaseMetric):
             score = self._metric.get_scores(prediction, [ground_truth])
             scores_for_ground_truths.append(score)
         max_score = copy.deepcopy(score)
-        max_score = max([score["rouge-l"]["f"]
-                         for score in scores_for_ground_truths])
+        max_score = max([score["rouge-l"]["f"] for score in scores_for_ground_truths])
         return max_score
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None):
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ):
         all_scores = []
         for gen_text, ref_texts in zip(generated_texts, reference_texts):
-            rouge_max_score = self._rouge_max_over_ground_truths(
-                gen_text, ref_texts)
+            rouge_max_score = self._rouge_max_over_ground_truths(gen_text, ref_texts)
             all_scores.append(rouge_max_score)
 
-        metric_dict = {
-            "lexical/rouge_l_max": (all_scores, np.mean(all_scores))
-        }
+        metric_dict = {"lexical/rouge_l_max": (all_scores, np.mean(all_scores))}
         return metric_dict
 
 
@@ -561,21 +596,21 @@ class SacreBLEUMetric(BaseMetric):
         self._args = args
         self._metric = load_metric("sacrebleu")
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
 
-        metric_results = self._metric.compute(predictions=generated_texts,
-                                              references=reference_texts,
-                                              **self._args)
+        metric_results = self._metric.compute(
+            predictions=generated_texts, references=reference_texts, **self._args
+        )
         bleu_score = metric_results["score"] / 100
-        metric_dict = {
-            "lexical/sacrebleu": (None, bleu_score)
-        }
+        metric_dict = {"lexical/sacrebleu": (None, bleu_score)}
         return metric_dict
 
 
@@ -584,20 +619,21 @@ class TERMetric(BaseMetric):
         super().__init__()
         self._metric = load_metric("ter")
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
 
-        metric_results = self._metric.compute(predictions=generated_texts,
-                                              references=reference_texts)
+        metric_results = self._metric.compute(
+            predictions=generated_texts, references=reference_texts
+        )
         score = metric_results["score"] / 100
-        metric_dict = {
-            "lexical/ter": (None, score)
-        }
+        metric_dict = {"lexical/ter": (None, score)}
         return metric_dict
 
 
@@ -606,38 +642,46 @@ class chrFmetric(BaseMetric):
         super().__init__()
         self._metric = load_metric("chrf")
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
 
-        metric_results = self._metric.compute(predictions=generated_texts,
-                                              references=reference_texts)
+        metric_results = self._metric.compute(
+            predictions=generated_texts, references=reference_texts
+        )
         score = metric_results["score"] / 100
-        metric_dict = {
-            "lexical/chrf": (None, score)
-        }
+        metric_dict = {"lexical/chrf": (None, score)}
         return metric_dict
+
 
 class IntentAccuracyDailyDialog(BaseMetric):
     def __init__(self) -> None:
         super().__init__()
-        self._tokenizer = AutoTokenizer.from_pretrained("rajkumarrrk/roberta-daily-dialog-intent-classifier")
-        self._model = AutoModelForSequenceClassification.from_pretrained("rajkumarrrk/roberta-daily-dialog-intent-classifier")
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            "rajkumarrrk/roberta-daily-dialog-intent-classifier"
+        )
+        self._model = AutoModelForSequenceClassification.from_pretrained(
+            "rajkumarrrk/roberta-daily-dialog-intent-classifier"
+        )
         self._device = "cuda" if torch.cuda.is_available() else "cpu"
         self._device = f"cuda:{torch.cuda.device_count() - 1}"
         self._model = self._model.to(self._device)
 
-    def compute(self,
-                prompt_texts: List[str],
-                generated_texts: List[str],
-                reference_texts: List[List[str]],
-                meta_infos: List[Dict[str, Any]] = None,
-                model: PreTrainedModel = None,
-                split_name: str = None) -> Tuple[List[float], float]:
+    def compute(
+        self,
+        prompt_texts: List[str],
+        generated_texts: List[str],
+        reference_texts: List[List[str]],
+        meta_infos: List[Dict[str, Any]] = None,
+        model: PreTrainedModel = None,
+        split_name: str = None,
+    ) -> Tuple[List[float], float]:
         def get_input_for_classifier(prompt, generated_text):
             history = prompt.split(DailyDialog.EOU_TOKEN)
             history = [utt for utt in history if utt != ""]
@@ -646,42 +690,39 @@ class IntentAccuracyDailyDialog(BaseMetric):
             return input_text
 
         # we have to extract the history utterances
-        input_texts = [get_input_for_classifier(prompt, gen) 
-                        for prompt, gen in zip(prompt_texts, generated_texts)]
+        input_texts = [
+            get_input_for_classifier(prompt, gen)
+            for prompt, gen in zip(prompt_texts, generated_texts)
+        ]
 
         # extract target intents
-        target_intents = [info["intent"][0] - 1 for info in meta_infos]    
-        
+        target_intents = [info["intent"][0] - 1 for info in meta_infos]
+
         # tokenize
         encoded = self._tokenizer(
-                    input_texts,
-                    return_tensors="pt",
-                    truncation=True,
-                    padding=True)
+            input_texts, return_tensors="pt", truncation=True, padding=True
+        )
 
         with torch.no_grad():
-            outputs = self._model(input_ids=encoded.input_ids.to(self._device),
-                                    attention_mask=encoded.attention_mask.to(self._device))
+            outputs = self._model(
+                input_ids=encoded.input_ids.to(self._device),
+                attention_mask=encoded.attention_mask.to(self._device),
+            )
             pred_labels = torch.argmax(outputs.logits, dim=1).tolist()
 
-
-        matching_scores = (np.array(pred_labels) == np.array(target_intents)).astype(np.int32)
+        matching_scores = (np.array(pred_labels) == np.array(target_intents)).astype(
+            np.int32
+        )
         intent_accuracy = np.mean(matching_scores)
 
-        metric_dict = {
-            "intent/accuracy": (matching_scores.tolist(), intent_accuracy)
-        }
-        return metric_dict     
-         
+        metric_dict = {"intent/accuracy": (matching_scores.tolist(), intent_accuracy)}
+        return metric_dict
 
 
 if __name__ == "__main__":
     prompt_texts = [""]
     gen_texts = ["Hello there general kenobi", "foo bar foobar"]
-    reference_texts = [
-        ["Hello there general kenobi"],
-        ["foo bar foobar"]
-    ]
+    reference_texts = [["Hello there general kenobi"], ["foo bar foobar"]]
     # metric = MeteorMetric()
     # print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
@@ -721,11 +762,13 @@ if __name__ == "__main__":
     # print(metric.compute([document], [summary], []))
 
     prompt_texts = ["1", "2"]
-    gen_texts = ["The dog is the boy's cat.",
-                 "A boy is picking apples from trees and put them into bags."]
+    gen_texts = [
+        "The dog is the boy's cat.",
+        "A boy is picking apples from trees and put them into bags.",
+    ]
     reference_texts = [
         ["The dog is the boy's cat.", "The dog eats the cat of the boy."],
-        ["A boy is picking apples from trees."]
+        ["A boy is picking apples from trees."],
     ]
     metric = CIDERMetric()
     print(metric.compute(prompt_texts, gen_texts, reference_texts))
