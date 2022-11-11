@@ -563,9 +563,10 @@ class DailyDialog(TextGenPool):
                 if len(contexts) >= context_size:
                     context = DailyDialog.EOU_TOKEN.join(contexts[-context_size:]) 
                     context += " " + DailyDialog.EOU_TOKEN
+                    target = utterance + DailyDialog.EOU_TOKEN
                     sample = Sample(id=utterance_id, 
                                     prompt_or_input_text=context, 
-                                    references=[utterance],
+                                    references=[target],
                                     meta_data={
                                         "emotion": [emotion],
                                         "intent": [intent]
@@ -579,6 +580,15 @@ class DailyDialog(TextGenPool):
 
 
 if __name__ == "__main__":
+    from transformers import AutoTokenizer
+    import numpy as np
     dp = DailyDialog.prepare("val", 5)
-    print(dp[1000])
-    print(len(dp))
+
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+
+    lengths = []
+    for sample, _ in dp:
+        encoded = tokenizer(sample.prompt_or_input_text)
+        lengths.append(len(encoded.input_ids))
+    print(np.min(lengths), np.mean(lengths), np.max(lengths))
+    
