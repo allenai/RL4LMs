@@ -555,10 +555,14 @@ class chrF(RewardFunction):
 
 
 class IntentAccuracy(BatchedRewardFunction):
-    def __init__(self, shape: bool = True) -> None:
+    def __init__(self, shape: bool = True, 
+                       intent_coeff: float = 1.0, 
+                       auto_coeff: float = 1.0) -> None:
         super().__init__()
         self._metric = None
         self._shape = shape
+        self._intent_coeff = intent_coeff
+        self._auto_coeff = auto_coeff
         self._shaping_metric = MeteorMetric()
 
     def __call__(
@@ -585,6 +589,7 @@ class IntentAccuracy(BatchedRewardFunction):
             zip(prompt_texts, gen_texts, ref_texts, meta_infos, dones)
         ):
             if done:
+                gen = " " if len(gen) == 0 else gen
                 done_prompt_texts.append(prompt)
                 done_gen_texts.append(gen)
                 done_ref_texts.append(ref)
@@ -595,12 +600,12 @@ class IntentAccuracy(BatchedRewardFunction):
                     score = self._shaping_metric.compute(
                         done_prompt_texts, done_gen_texts, done_ref_texts
                     )
-                    rewards[ix] = score["lexical/meteor"][1]
+                    rewards[ix] = self._auto_coeff * score["lexical/meteor"][1]
 
         scores = self._metric.compute(
             done_prompt_texts, done_gen_texts, done_ref_texts, done_meta_infos
         )["intent/accuracy"][0]
-        rewards[done_ixs] += scores
+        rewards[done_ixs] += self._intent_coeff * scores
         return rewards.tolist()
 
 
