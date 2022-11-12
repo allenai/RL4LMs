@@ -1,5 +1,5 @@
 tokenizer:
-  model_name: gpt2
+  model_name: microsoft/DialoGPT-medium
   padding_side: left
   truncation_side: left
   pad_token_as_eos_token: True
@@ -48,7 +48,7 @@ alg:
   policy:
     id: causal_lm_actor_critic_policy
     args:
-      model_name: gpt2
+      model_name: microsoft/DialoGPT-medium
       apply_model_parallel: True
       generation_kwargs:
         do_sample: True
@@ -65,7 +65,7 @@ train_evaluation:
     - id: intent_accuracy
     - id: causal_perplexity
       args:
-        tokenizer_id: gpt2
+        tokenizer_id: microsoft/DialoGPT-medium
         stride: 128
         model_type: causal
     - id: diversity

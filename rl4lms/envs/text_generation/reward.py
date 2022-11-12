@@ -555,9 +555,9 @@ class chrF(RewardFunction):
 
 
 class IntentAccuracy(BatchedRewardFunction):
-    def __init__(self, shape: bool = True, 
-                       intent_coeff: float = 1.0, 
-                       auto_coeff: float = 1.0) -> None:
+    def __init__(
+        self, shape: bool = True, intent_coeff: float = 1.0, auto_coeff: float = 1.0
+    ) -> None:
         super().__init__()
         self._metric = None
         self._shape = shape
@@ -589,7 +589,6 @@ class IntentAccuracy(BatchedRewardFunction):
             zip(prompt_texts, gen_texts, ref_texts, meta_infos, dones)
         ):
             if done:
-                gen = " " if len(gen) == 0 else gen
                 done_prompt_texts.append(prompt)
                 done_gen_texts.append(gen)
                 done_ref_texts.append(ref)
@@ -605,7 +604,7 @@ class IntentAccuracy(BatchedRewardFunction):
         scores = self._metric.compute(
             done_prompt_texts, done_gen_texts, done_ref_texts, done_meta_infos
         )["intent/accuracy"][0]
-        rewards[done_ixs] += self._intent_coeff * scores
+        rewards[done_ixs] += self._intent_coeff * np.array(scores)
         return rewards.tolist()
 
 
