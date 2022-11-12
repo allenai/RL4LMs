@@ -5,7 +5,21 @@ tokenizer:
   pad_token_as_eos_token: True
 
 reward_fn:
-  id: "intent_accuracy"
+  expand: True 
+  values:
+    - id: "intent_accuracy"
+      args:
+        intent_coeff: 0.5
+        auto_coeff: 0.5
+    - id: "intent_accuracy"
+      args:
+        intent_coeff: 0.25
+        auto_coeff: 0.75
+    - id: "intent_accuracy"
+      args:
+        intent_coeff: 0.75
+        auto_coeff: 0.25
+
 
 datapool:
   id: "daily_dialog"
@@ -40,11 +54,11 @@ alg:
         do_sample: True
         top_k: 20
         min_length: 2
-        max_new_tokens: 30
+        max_new_tokens: 20
       
 train_evaluation:
   eval_batch_size: 32
-  n_iters: 50
+  n_iters: 200
   eval_every: 5
   save_every: 10
   metrics:
@@ -71,4 +85,4 @@ train_evaluation:
     do_sample: True
     top_k: 20
     min_length: 2
-    max_new_tokens: 30
+    max_new_tokens: 20
