@@ -133,7 +133,10 @@ class CommonGen(TextGenPool):
             targets = [item["target"]]
             sample = Sample(id=f"{split}_{ix}",
                             prompt_or_input_text=concepts,
-                            references=targets
+                            references=targets,
+                            meta_data={
+                                "concepts": item["concepts"]
+                            }
                             )
             samples.append(sample)
         pool_instance = cls(samples)
