@@ -74,6 +74,7 @@ from rl4lms.envs.text_generation.reward import (
     chrF,
     IntentAccuracy,
 )
+from rl4lms.envs.text_generation.preference_reward import CommonGenPrefRM
 from rl4lms.envs.text_generation.test_datapool import TestTextGenPool
 from rl4lms.envs.text_generation.test_metric import DateInText, IncreasingNumbersinText
 from rl4lms.envs.text_generation.test_reward import (
@@ -130,6 +131,7 @@ class RewardFunctionRegistry:
         "ter": TER,
         "chrf": chrF,
         "intent_accuracy": IntentAccuracy,
+        "common_gen_preference_model": CommonGenPrefRM,
     }
 
     @classmethod
