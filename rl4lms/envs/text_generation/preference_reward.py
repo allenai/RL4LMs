@@ -20,6 +20,7 @@ from urllib.request import urlretrieve
 from pathlib import Path
 from rl4lms.envs.text_generation.reward import BatchedRewardFunction
 from typing import List, Dict, Any
+from rl4lms.envs.text_generation.metric import MeteorMetric
 
 _model, _tokenizer = None, None
 
@@ -186,11 +187,33 @@ def main():
 
 
 class CommonGenPrefRM(BatchedRewardFunction):
-    def __init__(self, model_type: str, device: str, batch_size: int) -> None:
+    def __init__(
+        self,
+        model_type: str,
+        device: str,
+        batch_size: int,
+        concept_penalty_coeff: float = 0.0,
+        meteor_coeff: float = 0.0,
+    ) -> None:
         super().__init__()
         self._model_type = model_type
         self._device = device
         self._batch_size = batch_size
+        self._concept_penalty_coeff = concept_penalty_coeff
+        self._meteor_coeff = meteor_coeff
+        self._meteor_metric = MeteorMetric()
+
+    def _get_missing_concepts(self, gen: str, concepts: List[str]):
+        gen_text = gen.lower()
+        missing_concepts = []
+        for concept in concepts:
+            if concept not in gen_text:
+                missing_concepts.append(concept)
+        return missing_concepts
+
+    def _get_meteor_scores(self, gen: str, references: List[str]):
+        scores = self._meteor_metric.compute(None, [gen], [references])
+        return scores["lexical/meteor"][1]
 
     def __call__(
         self,
@@ -208,6 +231,8 @@ class CommonGenPrefRM(BatchedRewardFunction):
         done_ref_texts = []
         done_meta_infos = []
         done_ixs = []
+        done_n_missing_concepts = []
+        done_meteor_scores = []
         for ix, (prompt, gen, ref, meta_info, done) in enumerate(
             zip(prompt_texts, gen_texts, ref_texts, meta_infos, dones)
         ):
@@ -217,11 +242,22 @@ class CommonGenPrefRM(BatchedRewardFunction):
                 done_ref_texts.append(ref)
                 done_meta_infos.append(meta_info)
                 done_ixs.append(ix)
+                missing_concepts = self._get_missing_concepts(
+                    gen, meta_info["concepts"]
+                )
+                done_n_missing_concepts.append(len(missing_concepts))
+                done_meteor_scores.append(self._get_meteor_scores(gen, ref))
 
-        scores = get_scores(
+        # get pref scores
+        pref_scores = get_scores(
             done_gen_texts, self._model_type, self._device, self._batch_size
         )
-        rewards[done_ixs] = np.array(scores)
+
+        # final
+        rewards[done_ixs] = self._meteor_coeff * np.array(done_meteor_scores)
+        rewards[done_ixs] += np.array(pref_scores) / (
+            1 + self._concept_penalty_coeff * np.array(done_n_missing_concepts)
+        )
         return rewards.tolist()
 
 
