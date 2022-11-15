@@ -1,0 +1,71 @@
+tokenizer:
+  model_name: facebook/blenderbot-400M-distill
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: "intent_accuracy"
+  args:
+    intent_coeff: 0.5
+    auto_coeff: 0.5
+
+datapool:
+  id: "daily_dialog"
+  args:
+    context_size: 5
+
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 128
+    max_episode_length: 20
+    terminate_on_eos: True
+    context_start_token: 1 # this is decoder start token
+
+alg:
+  id: ppo
+  args:
+    n_steps: 128
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.000001
+    ent_coef: 0.001
+    n_epochs: 5
+  kl_div:
+    coeff: 0.1
+    target_kl: 0.5
+  policy:
+    id: seq2seq_lm_actor_critic_policy
+    args:
+      model_name: facebook/blenderbot-400M-distill
+      apply_model_parallel: False
+      generation_kwargs:
+         min_length: 5
+         max_new_tokens: 20  # this must align with env's max steps
+         num_beams: 4
+
+train_evaluation:
+  eval_batch_size: 32
+  n_iters: 50
+  eval_every: 5
+  save_every: 10
+  metrics:
+    - id: intent_accuracy
+    - id: diversity
+      args: {}
+    - id: meteor
+      args: {}
+    - id: rouge
+    - id: bleu
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    - id: sacre_bleu
+      args:
+        tokenize: "intl"
+  generation_kwargs:
+    min_length: 5
+    max_new_tokens: 20  # this must align with env's max steps
+    num_beams: 4
