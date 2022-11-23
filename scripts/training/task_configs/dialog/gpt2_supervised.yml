@@ -13,28 +13,20 @@ datapool:
 alg:
   id: supervised
   training_args:
-    per_device_train_batch_size:
-      expand: True
-      values: [32]
+    per_device_train_batch_size: 32
     logging_steps: 300
-    num_train_epochs:
-      expand: True
-      values: [20]
+    num_train_epochs: 20
     lr_scheduler_type: "constant"
-    learning_rate: 
-      expand: True 
-      values: [0.00001]
+    learning_rate: 0.00001
     save_total_limit: 1
   model_type: causal
   model_name: gpt2
   generation_kwargs:
-    expand: True
-    values:
-      - do_sample: True
-        top_k: 20
-        min_length: 2
-        max_new_tokens: 20
-        post_processing_fn: null
+    do_sample: True
+    top_k: 20
+    min_length: 2
+    max_new_tokens: 20
+    post_processing_fn: null
 
 train_evaluation:
   eval_batch_size: 256

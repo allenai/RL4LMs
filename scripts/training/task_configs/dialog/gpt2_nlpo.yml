@@ -1,14 +1,14 @@
 tokenizer:
-  model_name: facebook/blenderbot-400M-distill
+  model_name: gpt2
   padding_side: left
   truncation_side: left
-  pad_token_as_eos_token: False
+  pad_token_as_eos_token: True
 
 reward_fn:
   id: "intent_accuracy"
   args:
-    intent_coeff: 0.5
-    auto_coeff: 0.5
+    intent_coeff: 0.75
+    auto_coeff: 0.25
 
 datapool:
   id: "daily_dialog"
@@ -21,37 +21,46 @@ env:
     max_prompt_length: 128
     max_episode_length: 20
     terminate_on_eos: True
-    context_start_token: 1 # this is decoder start token
 
 alg:
-  id: ppo
+  id: nlpo
   args:
     n_steps: 128
     batch_size: 64
     verbose: 1
     learning_rate: 0.000001
-    ent_coef: 0.001
     n_epochs: 5
+
   kl_div:
-    coeff: 0.1
+    coeff: 0.2
     target_kl: 0.5
   policy:
-    id: seq2seq_lm_actor_critic_policy
+    id: maskable_causal_lm_actor_critic_policy
     args:
-      model_name: facebook/blenderbot-400M-distill
-      apply_model_parallel: False
+      model_name: gpt2
+      apply_model_parallel: True
+      top_mask: 0.9
+      min_tokens_to_keep: 100
+      mask_type: 'learned_top_p'
+      target_update_iterations: 20
       generation_kwargs:
-         min_length: 5
-         max_new_tokens: 20  # this must align with env's max steps
-         num_beams: 4
+        do_sample: True
+        top_k: 20
+        min_length: 2
+        max_new_tokens: 20
 
 train_evaluation:
   eval_batch_size: 32
-  n_iters: 50
+  n_iters: 100
   eval_every: 5
   save_every: 10
   metrics:
     - id: intent_accuracy
+    - id: causal_perplexity
+      args:
+        tokenizer_id: gpt2
+        stride: 128
+        model_type: causal
     - id: diversity
       args: {}
     - id: meteor
@@ -66,6 +75,7 @@ train_evaluation:
       args:
         tokenize: "intl"
   generation_kwargs:
-    min_length: 5
-    max_new_tokens: 20  # this must align with env's max steps
-    num_beams: 4
+    do_sample: True
+    top_k: 20
+    min_length: 2
+    max_new_tokens: 20

@@ -1,24 +1,14 @@
 tokenizer:
-  model_name: microsoft/DialoGPT-medium
+  model_name: gpt2
   padding_side: left
   truncation_side: left
   pad_token_as_eos_token: True
 
 reward_fn:
-  expand: True 
-  values:
-    - id: "intent_accuracy"
-      args:
-        intent_coeff: 0.5
-        auto_coeff: 0.5
-    - id: "intent_accuracy"
-      args:
-        intent_coeff: 0.25
-        auto_coeff: 0.75
-    - id: "intent_accuracy"
-      args:
-        intent_coeff: 0.75
-        auto_coeff: 0.25
+  id: "intent_accuracy"
+  args:
+    intent_coeff: 0.5
+    auto_coeff: 0.5
 
 
 datapool:
@@ -44,11 +34,12 @@ alg:
     
   kl_div:
     coeff: 0.2
-    target_kl: 0.5
+    target_kl: 0.05
+ 
   policy:
     id: causal_lm_actor_critic_policy
     args:
-      model_name: microsoft/DialoGPT-medium
+      model_name: rajkumarrrk/gpt2-fine-tuned-on-daily-dialog
       apply_model_parallel: True
       generation_kwargs:
         do_sample: True
@@ -58,14 +49,14 @@ alg:
       
 train_evaluation:
   eval_batch_size: 32
-  n_iters: 100
+  n_iters: 50
   eval_every: 5
   save_every: 10
   metrics:
     - id: intent_accuracy
     - id: causal_perplexity
       args:
-        tokenizer_id: microsoft/DialoGPT-medium
+        tokenizer_id: gpt2
         stride: 128
         model_type: causal
     - id: diversity

@@ -551,7 +551,7 @@ class CRD3DialogueGeneration(TextGenPool):
 
 
 class DailyDialog(TextGenPool):
-    EOU_TOKEN = "</s><s>"
+    EOU_TOKEN = "<EOU>"
     @classmethod
     def prepare(cls, split: str, context_size: int):
         split = CommonGen.gen_split_name(split)
@@ -565,7 +565,7 @@ class DailyDialog(TextGenPool):
                                                   item["act"]):
                 if len(contexts) >= context_size:
                     context = DailyDialog.EOU_TOKEN.join(contexts[-context_size:]) 
-                    #context += " " + DailyDialog.EOU_TOKEN
+                    context += " " + DailyDialog.EOU_TOKEN
                     target = utterance + DailyDialog.EOU_TOKEN
                     sample = Sample(id=utterance_id, 
                                     prompt_or_input_text=context, 
