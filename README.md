@@ -32,6 +32,12 @@ Thoroughly **tested** and **benchmarked** with over **2000 experiments** :fire: 
 
 All of these building blocks can be customizable allowing users to train transformer-based LMs to optimize any arbitrary reward function on any dataset of their choice.
 
+## Recent updates (v0.2.0) on 23-Nov-22
+- Added daily dialog task
+- Fixed compatibility issues with some Seq2seq models such as BART, blendorbot etc
+- Implemented data parallel support
+- Refactored policy classes
+
 ---
 # Install
 
