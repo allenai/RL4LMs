@@ -10,7 +10,7 @@ from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticP
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance
 from rl4lms.envs.text_generation.logging_utils import Tracker
-
+from rl4lms.envs.text_generation.policy.base_policy import EvaluateActionsOutput
 
 class A2C(OnPolicyAlgorithm):
     """
@@ -143,7 +143,9 @@ class A2C(OnPolicyAlgorithm):
                 # Convert discrete action from float to long
                 actions = actions.long().flatten()
 
-            values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
+            evaluation_output: EvaluateActionsOutput = self.policy.evaluate_actions(
+                    rollout_data.observations, actions)
+            values, log_prob, entropy = evaluation_output.values, evaluation_output.log_prob, evaluation_output.entropy
             values = values.flatten()
 
             # Normalize advantage (not present in the original implementation)

@@ -1,0 +1,57 @@
+tokenizer:
+  model_name: facebook/blenderbot-400M-distill
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: False
+
+reward_fn:
+  id: increasing_numbers
+  args:
+    min_tokens: 20
+
+datapool:
+  id: dummy_pool
+  args:
+    n_samples: 50
+    prompt: 'Let us generate some numbers'
+env:
+  n_envs: 10
+  args:
+    max_prompt_length: 5
+    max_episode_length: 20
+    terminate_on_eos: True
+    context_start_token: 1 # this is decoder start token
+
+alg:
+  id: ppo
+  args:
+    n_steps: 128
+    batch_size: 64
+    verbose: 1
+    learning_rate: 0.000001
+    ent_coef: 0.001
+    n_epochs: 5
+  kl_div:
+    coeff: 0.00001
+    target_kl: 3
+  policy:
+    id: seq2seq_lm_actor_critic_policy
+    args:
+      model_name: facebook/blenderbot-400M-distill
+      apply_model_parallel: False
+      generation_kwargs:
+        do_sample: True
+        min_length: 20
+        top_k: 200
+        max_new_tokens: 20  # this must align with env's max steps
+        num_beams: 1
+
+train_evaluation:
+  eval_batch_size: 256
+  n_iters: 100
+  eval_every: 10
+  save_every: 10
+  metrics:
+    - id: increasing_numbers
+      args:
+          min_tokens: 20

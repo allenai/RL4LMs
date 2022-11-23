@@ -136,18 +136,25 @@ class Observation:
                                    return_attention_mask=True,
                                    truncation=True)
         tokenizer.truncation_side = prev_truncation_side
+        
 
-        # encode the context text
-        context_outputs = tokenizer("",
+        # for seq2seq models, context should be initialized to start token if provided
+        if context_start_token is not None:
+            context_outputs = tokenizer("",
                                     padding="max_length",
                                     max_length=max_context_length,
                                     return_tensors="pt",
                                     return_attention_mask=True)
-
-        # for seq2seq models, context should be initialized to start token if provided
-        if context_start_token is not None:
+            context_outputs.input_ids = torch.ones(1, max_context_length, dtype=torch.int32) * tokenizer.pad_token_id
             context_outputs.input_ids[:, -1] = context_start_token
-            context_outputs.attention_mask[:, -1] = 1
+            context_outputs.attention_mask = torch.zeros(1, max_context_length, dtype=torch.int32)
+            context_outputs.attention_mask[:,-1] = 1
+        else:
+            context_outputs = tokenizer("",
+                                    padding="max_length",
+                                    max_length=max_context_length,
+                                    return_tensors="pt",
+                                    return_attention_mask=True)
 
         # concatenate
         input_encoded_pt, input_attention_mask_pt = Observation._concat(

@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Dict, Optional, Tuple, List, Union
 import torch
 from gym.spaces import Discrete
@@ -14,6 +15,11 @@ from rl4lms.envs.text_generation.hf_generation_utils import override_generation_
 from stable_baselines3.common.type_aliases import TensorDict
 from rl4lms.algorithms.common.maskable.logits_processor import MaskLogitsProcessorCasualLM, MaskLogitsProcessorSeq2SeqLM
 from rl4lms.envs.text_generation.warm_start import ActorCriticWarmStartMixin, ActorOnlyWarmStartMixin, MaskableActorCriticWarmStartMixin
+from transformers.modeling_utils import unwrap_model
+
+class PolicyType(Enum):
+    CAUSAL = 0
+    SEQ2SEQ = 1
 
 
 class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
@@ -214,7 +220,7 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
 
     def get_log_probs_ref_model(self, obs: TensorDict,
                                 action: torch.tensor,
-                                past_model_kwargs: Dict[str, Any]):
+                                past_model_kwargs: Dict[str, Any] = None):
         self._ref_model = self._ref_model.eval()
 
         input_ids = obs["input_encoded_pt"]
@@ -236,7 +242,7 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
 
         # update the model kwargs for further generation
         past_model_kwargs = self._ref_model._update_model_kwargs_for_generation(
-            output, past_model_kwargs, is_encoder_decoder=self._ref_model.config.is_encoder_decoder
+            output, past_model_kwargs, is_encoder_decoder=self.is_encoder_decoder(self._ref_model)
         )
         return log_prob, past_model_kwargs
 
@@ -249,6 +255,13 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
 
     def get_policy_first_device(self):
         return self._policy_model.transformer.first_device if self._apply_model_parallel else self._policy_model.device
+
+    def is_encoder_decoder(self, model):
+        if isinstance(model, torch.nn.DataParallel):
+            return model.module.config.is_encoder_decoder
+        else:
+            return model.config.is_encoder_decoder
+
 
     def generate(self, tokenizer: AutoTokenizer,
                  texts: List[str] = None,
@@ -284,7 +297,7 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
 
         # if min_length argument is set and if policy is not a seq2seq LM (ie. causal LM)
         # then it has to be adjusted to input_size + min_length
-        if "min_length" in gen_kwargs.keys() and not self._policy_model.config.is_encoder_decoder:
+        if "min_length" in gen_kwargs.keys() and not self.is_encoder_decoder(self._policy_model):
             generation_kwargs_ = deepcopy(gen_kwargs)
             generation_kwargs_[
                 "min_length"] = input_ids.shape[1] + gen_kwargs["min_length"]
@@ -292,7 +305,7 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
             generation_kwargs_ = gen_kwargs
 
         # generate
-        gen_output = self._policy_model.generate(
+        gen_output = unwrap_model(self._policy_model).generate(
             inputs=input_ids.to(
                 self.get_policy_first_device()),
             attention_mask=attention_mask.to(
@@ -332,13 +345,16 @@ class LMActorCriticPolicy(BasePolicy, ActorCriticWarmStartMixin):
         return gen_output
 
     def get_language_model(self):
-        return self._policy_model
+        return unwrap_model(self._policy_model)
 
     def get_inputs_for_generation(self, obs: TensorDict):
         return obs["input_encoded_pt"], obs["input_attention_mask_pt"]
 
     def get_config_module(self):
         return self._policy_model.transformer
+
+    def get_policy_type(self):
+        return PolicyType.CAUSAL
 
 
 class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
@@ -357,13 +373,18 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
             self._value_model.config.hidden_size, 1, bias=False)
 
         # apply model parallel
-        if torch.cuda.is_available() and self._apply_model_parallel:
-            if self._policy_model.is_parallelizable:
+        if torch.cuda.is_available():
+            if self._apply_model_parallel and self._policy_model.is_parallelizable:
                 self._policy_model.parallelize()
                 self._ref_model.parallelize()
-            if self._value_model.is_parallelizable:
                 self._value_model.parallelize()
-        self._value_head = self._value_head.to(self.device)
+                self._value_head = self._value_head.to(self.device)
+            else: # else defaults to data parallel
+                self._policy_model = torch.nn.DataParallel(self._policy_model)
+                self._ref_model = torch.nn.DataParallel(self._ref_model)
+                self._value_model = torch.nn.DataParallel(self._value_model)
+                self._value_head = torch.nn.DataParallel(self._value_head.to(self.device))
+
 
     def forward_policy(self, obs: TensorDict,
                        actions: torch.tensor,
@@ -373,11 +394,11 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
             model_kwargs = {
                 "attention_mask": obs["prompt_or_input_attention_mask_pt"],
             }
-            inputs_tensor, model_input_name, model_kwargs = self._policy_model._prepare_model_inputs(
+            inputs_tensor, model_input_name, model_kwargs = unwrap_model(self._policy_model)._prepare_model_inputs(
                 obs["prompt_or_input_encoded_pt"].int(), None, model_kwargs)
 
             # 2. prepare encoder outputs
-            model_kwargs = self._policy_model._prepare_encoder_decoder_kwargs_for_generation(
+            model_kwargs = unwrap_model(self._policy_model)._prepare_encoder_decoder_kwargs_for_generation(
                 inputs_tensor, model_kwargs, model_input_name
             )
 
@@ -391,10 +412,10 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
         # all set to get into auto-regressive mode
         # prepare all of the model inputs for the decoder
         batch_size = input_ids.shape[0]
-        model_inputs = self._policy_model.prepare_inputs_for_generation(input_ids,
+        model_inputs = unwrap_model(self._policy_model).prepare_inputs_for_generation(input_ids,
                                                                         **model_kwargs)
 
-        # and forrward pass to get next token logits
+        # and forward pass to get next token logits
         outputs = self._policy_model(
             **model_inputs,
             decoder_attention_mask=decoder_attn_mask,
@@ -408,8 +429,8 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
         entropy = dist.entropy()
 
         # update the model kwargs for further generation
-        model_kwargs = self._policy_model._update_model_kwargs_for_generation(
-            outputs, model_kwargs, is_encoder_decoder=self._policy_model.config.is_encoder_decoder
+        model_kwargs = unwrap_model(self._policy_model)._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=unwrap_model(self._policy_model).config.is_encoder_decoder
         )
         model_kwargs["decoder_attention_mask"] = torch.cat(
             (decoder_attn_mask, torch.ones(batch_size, 1).to(decoder_attn_mask.device)), dim=-1)
@@ -422,11 +443,11 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
             model_kwargs = {
                 "attention_mask": obs["prompt_or_input_attention_mask_pt"],
             }
-            inputs_tensor, model_input_name, model_kwargs = self._value_model._prepare_model_inputs(
+            inputs_tensor, model_input_name, model_kwargs = unwrap_model(self._value_model)._prepare_model_inputs(
                 obs["prompt_or_input_encoded_pt"].int(), None, model_kwargs)
 
             # 2. prepare encoder outputs
-            model_kwargs = self._value_model._prepare_encoder_decoder_kwargs_for_generation(
+            model_kwargs = unwrap_model(self._value_model)._prepare_encoder_decoder_kwargs_for_generation(
                 inputs_tensor, model_kwargs, model_input_name
             )
 
@@ -440,7 +461,7 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
         # all set to get into auto-regressive mode
         # prepare all of the model inputs for the decoder
         batch_size = input_ids.shape[0]
-        model_inputs = self._value_model.prepare_inputs_for_generation(input_ids,
+        model_inputs = unwrap_model(self._value_model).prepare_inputs_for_generation(input_ids,
                                                                        **model_kwargs)
 
         # and forrward pass to get hidden states
@@ -456,8 +477,8 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
         values = self._value_head.forward(last_tokens_hidden)
 
         # update the model kwargs for further generation
-        model_kwargs = self._value_model._update_model_kwargs_for_generation(
-            outputs, model_kwargs, is_encoder_decoder=self._value_model.config.is_encoder_decoder
+        model_kwargs = unwrap_model(self._value_model)._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=unwrap_model(self._value_model).config.is_encoder_decoder
         )
         model_kwargs["decoder_attention_mask"] = torch.cat(
             (decoder_attn_mask, torch.ones(batch_size, 1).to(decoder_attn_mask.device)), dim=-1)
@@ -466,38 +487,37 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
 
     def get_log_probs_ref_model(self, obs: TensorDict,
                                 action: torch.tensor,
-                                model_kwargs: Dict[str, Any]):
+                                model_kwargs: Dict[str, Any] = None):
         if model_kwargs is None:
             # 1. prepare model inputs
             model_kwargs = {
                 "attention_mask": obs["prompt_or_input_attention_mask_pt"],
             }
-            inputs_tensor, model_input_name, model_kwargs = self._ref_model._prepare_model_inputs(
+            inputs_tensor, model_input_name, model_kwargs = unwrap_model(self._ref_model)._prepare_model_inputs(
                 obs["prompt_or_input_encoded_pt"].int(), None, model_kwargs)
 
             # 2. prepare encoder outputs
-            model_kwargs = self._ref_model._prepare_encoder_decoder_kwargs_for_generation(
+            model_kwargs = unwrap_model(self._ref_model)._prepare_encoder_decoder_kwargs_for_generation(
                 inputs_tensor, model_kwargs, model_input_name
             )
 
             # 3. Prepare input_ids for auto-regressive generation
-            batch_size = inputs_tensor.shape[0]
-            input_ids = self._ref_model._prepare_decoder_input_ids_for_generation(
-                batch_size,
-                model_kwargs=model_kwargs,
-            )
-            model_kwargs["input_ids"] = input_ids
+            input_ids = obs["context_encoded_pt"].int()
+            decoder_attn_mask = obs["context_attention_mask_pt"]
+        else:
+            input_ids = obs["context_encoded_pt"].int()
+            decoder_attn_mask = model_kwargs.pop("decoder_attention_mask")
 
         # all set to get into auto-regressive mode
         # prepare all of the model inputs for the decoder
-        input_ids = model_kwargs.pop("input_ids")
         batch_size = input_ids.shape[0]
-        model_inputs = self._ref_model.prepare_inputs_for_generation(input_ids,
-                                                                     **model_kwargs)
+        model_inputs = unwrap_model(self._ref_model).prepare_inputs_for_generation(input_ids,
+                                                                        **model_kwargs)
 
-        # and forrward pass to get next token logits
+        # and forward pass to get next token logits
         outputs = self._ref_model(
             **model_inputs,
+            decoder_attention_mask=decoder_attn_mask,
             return_dict=True)
         next_token_logits = outputs.logits[:, -1, :]
 
@@ -507,22 +527,24 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy):
         log_prob = dist.log_prob(action)
 
         # update the model kwargs for further generation
-        input_ids = torch.cat(
-            (input_ids, action.reshape(batch_size, 1)), dim=-1)
-        model_kwargs = self._ref_model._update_model_kwargs_for_generation(
-            outputs, model_kwargs, is_encoder_decoder=self._ref_model.config.is_encoder_decoder
+        model_kwargs = unwrap_model(self._ref_model)._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=unwrap_model(self._ref_model).config.is_encoder_decoder
         )
-        model_kwargs["input_ids"] = input_ids
+        model_kwargs["decoder_attention_mask"] = torch.cat(
+            (decoder_attn_mask, torch.ones(batch_size, 1).to(decoder_attn_mask.device)), dim=-1)
         return log_prob, model_kwargs
 
     def get_policy_first_device(self):
-        return self._policy_model.encoder.first_device
+        return self._policy_model.get_encoder().first_device if self._apply_model_parallel else self.device
 
     def get_inputs_for_generation(self, obs: TensorDict):
         return obs["prompt_or_input_encoded_pt"], obs["prompt_or_input_attention_mask_pt"]
 
     def get_config_module(self):
-        return self._policy_model.encoder
+        return self._policy_model.get_encoder()
+
+    def get_policy_type(self):
+        return PolicyType.SEQ2SEQ
 
 
 class MaskableLMActorCriticPolicy(BasePolicy, MaskableActorCriticWarmStartMixin):
@@ -745,7 +767,7 @@ class MaskableLMActorCriticPolicy(BasePolicy, MaskableActorCriticWarmStartMixin)
 
     def get_log_probs_ref_model(self, obs: TensorDict,
                                 action: torch.tensor,
-                                past_model_kwargs: Dict[str, Any]):
+                                past_model_kwargs: Dict[str, Any] = None):
         self._ref_model = self._ref_model.eval()
 
         input_ids = obs["input_encoded_pt"]
@@ -893,6 +915,9 @@ class MaskableLMActorCriticPolicy(BasePolicy, MaskableActorCriticWarmStartMixin)
     def get_config_module(self):
         return self._policy_model.transformer
 
+    def get_policy_type(self):
+        return PolicyType.CAUSAL
+
 
 class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
     def _build_model_heads(self,
@@ -915,14 +940,19 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
             self._value_model.config.hidden_size, 1, bias=False)
 
         # apply model parallel
-        if torch.cuda.is_available() and self._apply_model_parallel:
-            if self._policy_model.is_parallelizable:
+        if torch.cuda.is_available():
+            if self._apply_model_parallel and self._policy_model.is_parallelizable:
                 self._policy_model.parallelize()
                 self._ref_model.parallelize()
                 self._mask_model.parallelize()
-            if self._value_model.is_parallelizable:
                 self._value_model.parallelize()
-        self._value_head = self._value_head.to(self.device)
+                self._value_head = self._value_head.to(self.device)
+            else: # else defaults to data parallel
+                self._policy_model = torch.nn.DataParallel(self._policy_model)
+                self._ref_model = torch.nn.DataParallel(self._ref_model)
+                self._mask_model = torch.nn.DataParallel(self._mask_model)
+                self._value_model = torch.nn.DataParallel(self._value_model)
+                self._value_head = torch.nn.DataParallel(self._value_head.to(self.device))
 
         self.logits_processor = MaskLogitsProcessorSeq2SeqLM(
             self._mask_model, self.action_space, self.top_mask, self._apply_model_parallel, self.get_policy_first_device, self.mask_type, self.min_tokens_to_keep)
@@ -985,7 +1015,7 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
         # all set to get into auto-regressive mode
         # prepare all of the model inputs for the decoder
         batch_size = input_ids.shape[0]
-        model_inputs = self._policy_model.prepare_inputs_for_generation(input_ids,
+        model_inputs = unwrap_model(self._policy_model).prepare_inputs_for_generation(input_ids,
                                                                         **model_kwargs)
         # and forward pass to get next token logits
         outputs = self._policy_model(
@@ -1001,18 +1031,19 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
         # get log probs
         dist = self._action_dist.proba_distribution(
             action_logits=next_token_logits)
+        raw_log_probs = dist.log_prob(actions)
         if action_masks is not None:
             dist.apply_masking(action_masks)
-        log_prob = dist.log_prob(actions)
+        log_probs = dist.log_prob(actions)
         entropy = dist.entropy()
 
         # update the model kwargs for further generation
-        model_kwargs = self._policy_model._update_model_kwargs_for_generation(
-            outputs, model_kwargs, is_encoder_decoder=self._policy_model.config.is_encoder_decoder
+        model_kwargs = unwrap_model(self._policy_model)._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=unwrap_model(self._policy_model).config.is_encoder_decoder
         )
         model_kwargs["decoder_attention_mask"] = torch.cat(
             (decoder_attn_mask, torch.ones(batch_size, 1).to(decoder_attn_mask.device)), dim=-1)
-        return actions, log_prob, entropy, outputs, action_masks, model_kwargs
+        return actions, raw_log_probs, log_probs, entropy, outputs, action_masks, model_kwargs
 
     def forward_value(self, obs: TensorDict,
                       model_kwargs: Optional[Dict[str, torch.tensor]] = None):
@@ -1039,7 +1070,7 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
         # all set to get into auto-regressive mode
         # prepare all of the model inputs for the decoder
         batch_size = input_ids.shape[0]
-        model_inputs = self._value_model.prepare_inputs_for_generation(input_ids,
+        model_inputs = unwrap_model(self._value_model).prepare_inputs_for_generation(input_ids,
                                                                        **model_kwargs)
 
         # and forrward pass to get hidden states
@@ -1055,8 +1086,8 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
         values = self._value_head.forward(last_tokens_hidden)
 
         # update the model kwargs for further generation
-        model_kwargs = self._value_model._update_model_kwargs_for_generation(
-            outputs, model_kwargs, is_encoder_decoder=self._value_model.config.is_encoder_decoder
+        model_kwargs = unwrap_model(self._value_model)._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=unwrap_model(self._value_model).config.is_encoder_decoder
         )
         model_kwargs["decoder_attention_mask"] = torch.cat(
             (decoder_attn_mask, torch.ones(batch_size, 1).to(decoder_attn_mask.device)), dim=-1)
@@ -1065,7 +1096,7 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
 
     def get_log_probs_ref_model(self, obs: TensorDict,
                                 action: torch.tensor,
-                                model_kwargs: Dict[str, Any]):
+                                model_kwargs: Dict[str, Any] = None):
         if model_kwargs is None:
             # 1. prepare model inputs
             model_kwargs = {
@@ -1080,23 +1111,22 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
             )
 
             # 3. Prepare input_ids for auto-regressive generation
-            batch_size = inputs_tensor.shape[0]
-            input_ids = self._ref_model._prepare_decoder_input_ids_for_generation(
-                batch_size,
-                model_kwargs=model_kwargs,
-            )
-            model_kwargs["input_ids"] = input_ids
+            input_ids = obs["context_encoded_pt"].int()
+            decoder_attn_mask = obs["context_attention_mask_pt"]
+        else:
+            input_ids = obs["context_encoded_pt"].int()
+            decoder_attn_mask = model_kwargs.pop("decoder_attention_mask")
 
         # all set to get into auto-regressive mode
         # prepare all of the model inputs for the decoder
-        input_ids = model_kwargs.pop("input_ids")
         batch_size = input_ids.shape[0]
-        model_inputs = self._ref_model.prepare_inputs_for_generation(input_ids,
-                                                                     **model_kwargs)
+        model_inputs = unwrap_model(self._ref_model).prepare_inputs_for_generation(input_ids,
+                                                                        **model_kwargs)
 
-        # and forrward pass to get next token logits
+        # and forward pass to get next token logits
         outputs = self._ref_model(
             **model_inputs,
+            decoder_attention_mask=decoder_attn_mask,
             return_dict=True)
         next_token_logits = outputs.logits[:, -1, :]
 
@@ -1106,19 +1136,21 @@ class MaskableSeq2SeqLMActorCriticPolicy(MaskableLMActorCriticPolicy):
         log_prob = dist.log_prob(action)
 
         # update the model kwargs for further generation
-        input_ids = torch.cat(
-            (input_ids, action.reshape(batch_size, 1)), dim=-1)
-        model_kwargs = self._ref_model._update_model_kwargs_for_generation(
-            outputs, model_kwargs, is_encoder_decoder=self._ref_model.config.is_encoder_decoder
+        model_kwargs = unwrap_model(self._ref_model)._update_model_kwargs_for_generation(
+            outputs, model_kwargs, is_encoder_decoder=unwrap_model(self._ref_model).config.is_encoder_decoder
         )
-        model_kwargs["input_ids"] = input_ids
+        model_kwargs["decoder_attention_mask"] = torch.cat(
+            (decoder_attn_mask, torch.ones(batch_size, 1).to(decoder_attn_mask.device)), dim=-1)
         return log_prob, model_kwargs
 
     def get_policy_first_device(self):
-        return self._policy_model.encoder.first_device
+        return self._policy_model.get_encoder().first_device
 
     def get_inputs_for_generation(self, obs: TensorDict):
         return obs["prompt_or_input_encoded_pt"], obs["prompt_or_input_attention_mask_pt"]
 
     def get_config_module(self):
-        return self._policy_model.encoder
+        return self._policy_model.get_encoder()
+
+    def get_policy_type(self):
+        return PolicyType.SEQ2SEQ

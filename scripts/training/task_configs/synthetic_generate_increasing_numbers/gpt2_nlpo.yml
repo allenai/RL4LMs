@@ -13,7 +13,7 @@ datapool:
   id: dummy_pool
   args:
     n_samples: 50
-    prompt: 'Lets increase numbers'
+    prompt: '<|endoftext|>'
 env:
   n_envs: 10
   args:

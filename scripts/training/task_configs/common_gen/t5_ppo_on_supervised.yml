@@ -5,7 +5,12 @@ tokenizer:
   pad_token_as_eos_token: False
 
 reward_fn:
-  id: meteor
+  id: common_gen_preference_model
+  args:
+    device: "cpu"
+    batch_size: 5
+    model_type: "11b"
+
   # values:
   #   - id: rouge_combined
   #   - id: meteor
