@@ -417,7 +417,6 @@ class LearnedRewardFunction(RewardFunction):
             )
             generated_text += next_observation.context_text
 
-            encoded = self._metric_tokenizer(generated_text, return_tensors="pt")
             with torch.no_grad():
                 encoded = self._metric_tokenizer(
                     generated_text, return_tensors="pt", truncation=True, padding=True
