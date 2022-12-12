@@ -5,7 +5,7 @@ with open("requirements.txt") as fp:
 
 setup(
     name="rl4lms",
-    version="0.2.0",
+    version="0.2.1",
     description="A library for training language models (LM) using RL",
     author="Rajkumar Ramamurthy, Prithviraj Ammanabrolu",
     packages=find_packages(),
