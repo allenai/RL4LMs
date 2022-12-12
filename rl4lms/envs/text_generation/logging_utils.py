@@ -19,7 +19,10 @@ class Tracker:
                  project_name: str,
                  experiment_name: str,
                  entity_name: str = None,
-                 wandb_log: bool = False):
+                 wandb_log: bool = False,
+                 log_level: int = logging.DEBUG,
+        ):
+        self._log_level = log_level
         self._base_path_to_store_results = base_path_to_store_results
         self._config = run_config
         self._experiment_name = experiment_name
@@ -44,7 +47,7 @@ class Tracker:
         # init logger
         log_path = os.path.join(self._run_path, "log.txt")
         logging.basicConfig(
-            level=logging.DEBUG,
+            level=self._log_level,
             format="%(asctime)s [%(levelname)s] %(message)s",
             handlers=[
                 logging.FileHandler(log_path),
