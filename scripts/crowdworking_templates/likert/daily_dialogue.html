@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta name="generator" content=
+  "HTML Tidy for HTML5 for Linux version 5.6.0" />
+  <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name=
+  "viewport" />
+  <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+  <script type='text/javascript' src=
+  'https://s3.amazonaws.com/mturk-public/externalHIT_v1.js'></script><!-- BOOTSTRAP CSS -->
+  <link crossorigin="anonymous" href=
+  "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+  integrity=
+  "sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+  rel="stylesheet" /><!-- HITPUB CSS -->
+  <link href=
+  "https://fonts.googleapis.com/css?family=Open+Sans:400,400i,700,700i" rel=
+  "stylesheet" />
+  <style id="hitpub_css" type="text/css">
+  /*<![CDATA[*/
+  /***********************************************
+                        MOSAIC BOOSTRAP OVERWRITES
+                        ***********************************************/
+                        #hitinfo .card {
+                            border-radius: 0;
+                        }
+                        #hitinfo .card:first-child {
+                            border-bottom: 0;
+                        }
+                         #hitinfo button.btn-link {
+                            color: #06486F;
+                            text-decoration: none;
+                         }
+                        #hitinfo button.btn-link:hover {
+                            text-decoration: none;
+                        }
+                        #hit ul.question-choice {
+                            list-style-type: none;
+                        }
+                        /***********************************************
+                        MOSAIC GENERAL STYLING
+                        ***********************************************/
+                         body {
+                             font-family: "Open Sans", "Roboto", sans-serif;
+                         }
+                        textarea#feedback {
+                            width: 100%
+                        }
+                        input#submitButton {
+                            margin: auto;
+                            display: block;
+                            background-color: #2172a4;
+                            color: #fff;
+                            font-size: 1.125rem;
+                            padding: .5rem 1rem;
+                            cursor: pointer;
+                            border-radius: 1rem;
+                        }
+                        input#submitButton:hover {
+                            background-color: #06486F;
+                        }
+  /*]]>*/
+  </style>
+  <title></title>
+  <style type="text/css">
+  /*<![CDATA[*/
+  small.c11 {min-height:70px;}
+  label.c10 {color:green;}
+  label.c9 {color:red;}
+  label.c8 {font-size: 32px}
+  fieldset.c7 {border: 1px solid #D55E00; margin: 20px; padding: 0 10px 10px; border-radius: 8px; padding-top: 10px; box-shadow: 0 0 3px #666;}
+  fieldset.c6 {border: 1px solid #0072B2; margin: 20px; padding: 0 10px 10px; border-radius: 8px; padding-top: 10px; box-shadow: 0 0 3px #666;}
+  strong.c5 {color:red;}
+  strong.c4 {color:green;}
+  span.c3 {color:green;}
+  span.c2 {color:red;}
+  span.c1 {text-decoration: underline}
+  /*]]>*/
+  </style>
+</head>
+<body>
+  <div class="container col-8 offset-2" id="hit">
+    <div class="accordion" id="hitinfo">
+      <!-- INSTRUCTIONS START -->
+      <div class="card">
+        <div class="card-header" id="instructionsHeading">
+          <h5 class="mb-0"><button aria-controls="instructions" aria-expanded=
+          "true" class="btn btn-link" data-target="#instructions" data-toggle=
+          "collapse" type="button">Instructions (click to expand)</button></h5>
+        </div>
+        <div aria-labelledby="instructionsHeading" class="collapse card-body"
+        data-parent="#hitinfo" id="instructions">
+          <p>Thank you for your participation in this and other similar
+          HITS!</p>
+          <p><em>Please take a moment to familiarize yourself with this new HIT
+          by reading the instructions/examples, because things have changed a
+          bit.</em> Thanks again for your work!</p>
+          <p>In this HIT you will be presented with a <span class=
+          "key-term1">dialogue</span> consisting of a conversation between two
+          people. You will also be given a <span class="key-term2">system
+          generation,</span> which aims to contains the next line of the
+          conversation. Your job is to rate the <span class="key-term2">system
+          generation,</span> across 2 axes:</p>
+          <ul>
+            <li><strong>Fluency/Grammaticality:</strong> <em>Is the system's
+            generation <span class="c1">grammatical, easy-to-read, and
+            fluent?</span></em></li>
+            <li><strong>Quality/Coherence:</strong> <em>Is the next utterance
+            <span class="c1">coherent, reasonable, and the type of thing a
+            person might say,</span> in the context of the dialogue
+            history?</em></li>
+          </ul>
+          <p>You will rate each of the two axes on a scale from 1 to 5, with
+          <span class="c2">1 being the lowest/worst</span> and <span class=
+          "c3">5 the highest/best</span>. The specific scales are:</p>
+          <ul>
+            <li>
+              <strong>Fluency/Grammaticality:</strong>
+              <ul>
+                <li><strong class="c4">5/5 (excellent):</strong> The generation
+                is grammatical and fluent.</li>
+                <li>4/5 (good): The sentence largely makes sense, but there are
+                some small grammar issues/out-of-place words that don't make
+                for the best writing.</li>
+                <li>3/5 (okay): The grammar is okay and it's possible to read,
+                but it definitely doesn't sound like a human wrote it.</li>
+                <li>2/5 (poor): Even though I can kind-of tell the meaning,
+                it's difficult to read this unnatural sentence.</li>
+                <li><strong class="c5">1/5 (terrible):</strong> The generation
+                has severe errors in grammaticality/is almost or completely
+                unreadable.</li>
+              </ul>
+            </li>
+          </ul>
+          <ul>
+            <li>
+              <strong>Quality/Coherence:</strong>
+              <ul>
+                <li><strong class="c4">5/5 (perfectly coherent,
+                interesting):</strong> The generated next utterance is very
+                relevant and coherent with the dialogue context; a human might
+                say this.</li>
+                <li>4/5 (mostly relevant): The generation is relevant but not
+                perfect given the dialogue context.</li>
+                <li>3/5 (neutral): The generation is somewhat
+                plausible/relevant.</li>
+                <li>2/5 (mostly irrelevant): I see why this could be generated
+                but it doesn't make much sense.</li>
+                <li><strong class="c5">1/5
+                (wrong/nonsense/irrelevant):</strong> The generation doesn't
+                seem to apply to the dialogue at all or doesn't make any
+                sense.</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div><!-- INSTRUCTIONS END -->
+    </div>
+    <div>
+      <!-- MTURK INPUT START -->
+      <div class="col-8 mt-5 offset-2 align-content-center">
+        <form action="https://www.mturk.com/mturk/externalSubmit" id=
+        "mturk_form" method="post" name="mturk_form">
+          <input id="assignmentId" name="assignmentId" type="hidden" value=
+          "" /> <input id="ee" name="ee" type="hidden" />
+          <div class="row col-12">
+            <h5><span class="key-term1">Dialogue context (read me
+            first!):</span></h5>
+            <div class="col-12 align-text-center">
+              <fieldset class="c6">
+                ${prompt}
+              </fieldset>
+            </div>
+          </div>
+          <div class="row col-12">
+            <h5><span class="key-term2">System's generation <span class=
+            "c1">(rate this!)</span>:</span></h5>
+            <div class="col-12 align-text-center">
+              <fieldset class="c7">
+                ${machine_completion}
+              </fieldset>
+            </div>
+          </div>
+          <div class=
+          "row align-content-center mt-5 col-12 align-content-center form-group">
+            <label for="coherence" id="coherencelabel" class=
+            "c8"><strong>Fluency/Grammaticality: 3/5</strong></label><br />
+            <small>Is the system's generation <span class="c1">grammatical,
+            easy-to-read, and fluent?</span></small><br />
+            <label class="float-left c9">Bad</label> <label class=
+            "float-right c10">Excellent</label><br />
+            <input class="form-control-range" id="coherence" list=
+            "coherence_list" max="5" min="1" name="coherence" step="1" type=
+            "range" value="3" /> <datalist id="coherence_list">
+              <option label="bad" value="1">
+              </option>
+              <option label="mediocre" value="2">
+              </option>
+              <option label="okay" value="3">
+              </option>
+              <option label="good" value="4">
+              </option>
+              <option label="excellent" value="5">
+              </option>
+            </datalist> <small class="form-text text-muted c11" id=
+            "coherenceHelp">The grammar is okay and it's possible to read, but
+            it definitely doesn't sound like a human wrote it.</small>
+          </div>
+          <div class=
+          "row align-content-center col-12 align-content-center form-group">
+            <label for="quality" id="qualitylabel" class=
+            "c8"><strong>Quality/Coherence: 3/5</strong></label><br />
+            <small><em>Is the next utterance <span class="c1">coherent,
+            reasonable, and the type of thing a person might say,</span> in the
+            context of the dialogue history ?</em></small><br />
+            <label class="float-left c9">Bad</label> <label class=
+            "float-right c10">Excellent</label><br />
+            <input class="form-control-range" id="quality" list="quality_list"
+            max="5" min="1" name="quality" step="1" type="range" value="3" />
+            <datalist id="quality_list">
+              <option label="bad" value="1">
+              </option>
+              <option label="mediocre" value="2">
+              </option>
+              <option label="okay" value="3">
+              </option>
+              <option label="good" value="4">
+              </option>
+              <option label="excellent" value="5">
+              </option>
+            </datalist> <small class="form-text text-muted c11" id=
+            "qualityHelp">The generation is somewhat
+            plausible/relevant.</small>
+          </div><!-- OPTIONAL FEEDBACK -->
+          <div class="row mt-5 col-8 offset-2 col-lg-6 offset-lg-3">
+            <p>(Optional) Please let us know if anything was unclear, if you
+            experienced any issues, or if you have any other feedback for
+            us.</p>
+            <textarea id="feedback" name="feedback" rows="3"></textarea>
+          </div><!-- SUBMIT BUTTON -->
+          <div class="row mt-5 col-2 offset-5">
+            <input id="submitButton" onclick="getnext()" type="submit" value=
+            "Submit" />
+          </div>
+        </form>
+        <script language='Javascript'>
+        <![CDATA[
+        turkSetAssignmentID();
+        ]]>
+        </script>
+      </div><!-- MTURK INPUT END -->
+    </div><!-- HIT END --><!-- BOOSTRAP JS -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity=
+    "sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+    crossorigin="anonymous"></script> 
+    <script src=
+    "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+    integrity=
+    "sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+    crossorigin="anonymous"></script> 
+    <script src=
+    "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+    integrity=
+    "sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+    crossorigin="anonymous"></script><!-- HITPUB JS -->
+     
+    <script id="hitpub_js">
+
+
+    <![CDATA[
+
+                        
+                        // TimeMe.js
+                        (function () { var e, t; e = this, t = function () { var r = { startStopTimes: {}, idleTimeoutMs: 3e4, currentIdleTimeMs: 0, checkStateRateMs: 250, active: !1, idle: !1, currentPageName: "default-page-name", timeElapsedCallbacks: [], userLeftCallbacks: [], userReturnCallbacks: [], trackTimeOnElement: function (e) { var t = document.getElementById(e); t && (t.addEventListener("mouseover", function () { r.startTimer(e) }), t.addEventListener("mousemove", function () { r.startTimer(e) }), t.addEventListener("mouseleave", function () { r.stopTimer(e) }), t.addEventListener("keypress", function () { r.startTimer(e) }), t.addEventListener("focus", function () { r.startTimer(e) })) }, getTimeOnElementInSeconds: function (e) { var t = r.getTimeOnPageInSeconds(e); return t || 0 }, startTimer: function (e, t) { if (e || (e = r.currentPageName), void 0 === r.startStopTimes[e]) r.startStopTimes[e] = []; else { var n = r.startStopTimes[e], i = n[n.length - 1]; if (void 0 !== i && void 0 === i.stopTime) return } r.startStopTimes[e].push({ startTime: t || new Date, stopTime: void 0 }), r.active = !0, r.idle = !1 }, stopAllTimers: function () { for (var e = Object.keys(r.startStopTimes), t = 0; t < e.length; t++)r.stopTimer(e[t]) }, stopTimer: function (e, t) { e || (e = r.currentPageName); var n = r.startStopTimes[e]; void 0 !== n && 0 !== n.length && (void 0 === n[n.length - 1].stopTime && (n[n.length - 1].stopTime = t || new Date), r.active = !1) }, getTimeOnCurrentPageInSeconds: function () { return r.getTimeOnPageInSeconds(r.currentPageName) }, getTimeOnPageInSeconds: function (e) { var t = r.getTimeOnPageInMilliseconds(e); return void 0 === t ? void 0 : t / 1e3 }, getTimeOnCurrentPageInMilliseconds: function () { return r.getTimeOnPageInMilliseconds(r.currentPageName) }, getTimeOnPageInMilliseconds: function (e) { var t = r.startStopTimes[e]; if (void 0 !== t) { for (var n = 0, i = 0; i < t.length; i++) { var s = t[i].startTime, o = t[i].stopTime; void 0 === o && (o = new Date), n += o - s } return Number(n) } }, getTimeOnAllPagesInSeconds: function () { for (var e = [], t = Object.keys(r.startStopTimes), n = 0; n < t.length; n++) { var i = t[n], s = r.getTimeOnPageInSeconds(i); e.push({ pageName: i, timeOnPage: s }) } return e }, setIdleDurationInSeconds: function (e) { var t = parseFloat(e); if (!1 !== isNaN(t)) throw { name: "InvalidDurationException", message: "An invalid duration time (" + e + ") was provided." }; return r.idleTimeoutMs = 1e3 * e, this }, setCurrentPageName: function (e) { return r.currentPageName = e, this }, resetRecordedPageTime: function (e) { delete r.startStopTimes[e] }, resetAllRecordedPageTimes: function () { for (var e = Object.keys(r.startStopTimes), t = 0; t < e.length; t++)r.resetRecordedPageTime(e[t]) }, resetIdleCountdown: function () { r.idle && r.triggerUserHasReturned(), r.idle = !1, r.currentIdleTimeMs = 0 }, callWhenUserLeaves: function (e, t) { this.userLeftCallbacks.push({ callback: e, numberOfTimesToInvoke: t }) }, callWhenUserReturns: function (e, t) { this.userReturnCallbacks.push({ callback: e, numberOfTimesToInvoke: t }) }, triggerUserHasReturned: function () { if (!r.active) for (var e = 0; e < this.userReturnCallbacks.length; e++) { var t = this.userReturnCallbacks[e], n = t.numberOfTimesToInvoke; (isNaN(n) || void 0 === n || 0 < n) && (t.numberOfTimesToInvoke -= 1, t.callback()) } r.startTimer() }, triggerUserHasLeftPage: function () { if (r.active) for (var e = 0; e < this.userLeftCallbacks.length; e++) { var t = this.userLeftCallbacks[e], n = t.numberOfTimesToInvoke; (isNaN(n) || void 0 === n || 0 < n) && (t.numberOfTimesToInvoke -= 1, t.callback()) } r.stopAllTimers() }, callAfterTimeElapsedInSeconds: function (e, t) { r.timeElapsedCallbacks.push({ timeInSeconds: e, callback: t, pending: !0 }) }, checkState: function () { for (var e = 0; e < r.timeElapsedCallbacks.length; e++)r.timeElapsedCallbacks[e].pending && r.getTimeOnCurrentPageInSeconds() > r.timeElapsedCallbacks[e].timeInSeconds && (r.timeElapsedCallbacks[e].callback(), r.timeElapsedCallbacks[e].pending = !1); !1 === r.idle && r.currentIdleTimeMs > r.idleTimeoutMs ? (r.idle = !0, r.triggerUserHasLeftPage()) : r.currentIdleTimeMs += r.checkStateRateMs }, visibilityChangeEventName: void 0, hiddenPropName: void 0, listenForVisibilityEvents: function () { void 0 !== document.hidden ? (r.hiddenPropName = "hidden", r.visibilityChangeEventName = "visibilitychange") : void 0 !== document.mozHidden ? (r.hiddenPropName = "mozHidden", r.visibilityChangeEventName = "mozvisibilitychange") : void 0 !== document.msHidden ? (r.hiddenPropName = "msHidden", r.visibilityChangeEventName = "msvisibilitychange") : void 0 !== document.webkitHidden && (r.hiddenPropName = "webkitHidden", r.visibilityChangeEventName = "webkitvisibilitychange"), document.addEventListener(r.visibilityChangeEventName, function () { document[r.hiddenPropName] ? r.triggerUserHasLeftPage() : r.triggerUserHasReturned() }, !1), window.addEventListener("blur", function () { r.triggerUserHasLeftPage() }), window.addEventListener("focus", function () { r.triggerUserHasReturned() }), document.addEventListener("mousemove", function () { r.resetIdleCountdown() }), document.addEventListener("keyup", function () { r.resetIdleCountdown() }), document.addEventListener("touchstart", function () { r.resetIdleCountdown() }), window.addEventListener("scroll", function () { r.resetIdleCountdown() }), setInterval(function () { r.checkState() }, r.checkStateRateMs) }, websocket: void 0, websocketHost: void 0, setUpWebsocket: function (e) { if (window.WebSocket && e) { var t = e.websocketHost; try { r.websocket = new WebSocket(t), window.onbeforeunload = function () { r.sendCurrentTime(e.appId) }, r.websocket.onopen = function () { r.sendInitWsRequest(e.appId) }, r.websocket.onerror = function (e) { console && console.log("Error occurred in websocket connection: " + e) }, r.websocket.onmessage = function (e) { console && console.log(e.data) } } catch (e) { console && console.error("Failed to connect to websocket host.  Error:" + e) } } return this }, websocketSend: function (e) { r.websocket.send(JSON.stringify(e)) }, sendCurrentTime: function (e) { var t = { type: "INSERT_TIME", appId: e, timeOnPageMs: r.getTimeOnCurrentPageInMilliseconds(), pageName: r.currentPageName }; r.websocketSend(t) }, sendInitWsRequest: function (e) { var t = { type: "INIT", appId: e }; r.websocketSend(t) }, initialize: function (e) { var t = r.idleTimeoutMs || 30, n = r.currentPageName || "default-page-name", i = void 0, s = void 0; e && (t = e.idleTimeoutInSeconds || t, n = e.currentPageName || n, i = e.websocketOptions, s = e.initialStartTime), r.setIdleDurationInSeconds(t).setCurrentPageName(n).setUpWebsocket(i).listenForVisibilityEvents(), r.startTimer(void 0, s) } }; return r }, "undefined" != typeof module && module.exports ? module.exports = t() : "function" == typeof define && define.amd ? define([], function () { return e.TimeMe = t() }) : e.TimeMe = t() }).call(this);
+                        
+                        TimeMe.initialize({
+                            currentPageName: "task",
+                            idleTimeoutInSeconds: 30
+                        });
+                        
+                        
+                        
+                        $(document).ready(function() {
+                            var cookie_name = '_task_dialogue_RLUE_v1';
+                            
+                            $('.collapse').collapse({ 'toggle': false }).on('hidden.bs.collapse', function() {
+                                if (this.id) {
+                                    localStorage[this.id + cookie_name] = 'true';
+                                }
+                            }).on('shown.bs.collapse', function() {
+                                if (this.id) {
+                                    localStorage.removeItem(this.id + cookie_name);
+                                }
+                            }).each(function() {
+                                if (this.id && localStorage[this.id + cookie_name] == 'true' ) {
+                                    $(this).collapse('hide');
+                                }
+                            });
+                        
+                        
+                            $('#submitButton').click(function () {
+                                try {
+                                    $('input[name=ee]').attr('value', TimeMe.getTimeOnCurrentPageInSeconds());
+                                } catch {
+                                }
+                                return true;
+                            });
+                        
+                            $('#coherence').on('input', function() {
+                                var value = $(this).val()
+                                if(value == 5) {
+                                    $('#coherenceHelp').text(
+                                        "The generation is grammatical and fluent.");
+                                    $('#coherencelabel').html('<strong style="color:green;">Fluency/Grammaticality: 5/5</strong>');
+                                }
+                                else if(value == 4) {
+                                    $('#coherenceHelp').text("The sentence largely makes sense, but there are some small grammar issues/out-of-place words that don't make for the best writing.");
+                                    $('#coherencelabel').html('<strong style="color:mediumseagreen;">Fluency/Grammaticality: 4/5</strong>');
+                                }
+                                else if(value == 3) {
+                                    $('#coherenceHelp').text("The grammar is okay and it's possible to read, but it definitely doesn't sound like a human wrote it.");
+                                    $('#coherencelabel').html('<strong>Fluency/Grammaticality: 3/5</strong>');
+                                }
+                                else if(value == 2) {
+                                    $('#coherenceHelp').text("Even though I can kind-of tell the meaning, it's difficult to read this unnatural sentence.");
+                                    $('#coherencelabel').html('<strong style="color:lightcoral">Fluency/Grammaticality: 2/5</strong>');
+                                }
+                                else if(value == 1) {
+                                    $('#coherenceHelp').text("The generation has severe errors in grammaticality/is almost or completely unreadable.");
+                                    $('#coherencelabel').html('<strong style="color:red">Fluency/Grammaticality: 1/5</strong>');
+                                }
+                            });
+                            
+                            $('#quality').on('input', function() {
+                                var value = $(this).val()
+                                if(value == 5) {
+                                    $('#qualityHelp').text(
+                                        "The generated next utterance is very relevant and coherent with the dialogue context; a human might say this.");
+                                    $('#qualitylabel').html('<strong style="color:green;">Quality/Coherence: 5/5</strong>');
+                                }
+                                else if(value == 4) {
+                                    $('#qualityHelp').text("The generation is relevant but not perfect given the dialogue context.");
+                                    $('#qualitylabel').html('<strong style="color:mediumseagreen;">Quality/Coherence: 4/5</strong>');
+                                }
+                                else if(value == 3) {
+                                    $('#qualityHelp').text("The generation is somewhat plausible/relevant.");
+                                    $('#qualitylabel').html('<strong>Quality/Coherence: 3/5</strong>');
+                                }
+                                else if(value == 2) {
+                                    $('#qualityHelp').text("I see why this could be generated but it doesn't make much sense.");
+                                    $('#qualitylabel').html('<strong style="color:lightcoral">Quality/Coherence: 2/5</strong>');
+                                }
+                                else if(value == 1) {
+                                    $('#qualityHelp').text("The generation doesn't seem to apply to the dialogue at all or doesn't make any sense.");
+                                    $('#qualitylabel').html('<strong style="color:red">Quality/Coherence: 1/5</strong>');
+                                }
+                            });
+                        
+                            
+                        }); 
+    ]]>
+    </script>
+  </div>
+</body>
+</html>

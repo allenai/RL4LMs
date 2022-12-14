@@ -287,6 +287,10 @@ We provide LM based actor-critic policy [implementations](https://github.com/all
 ## Registry
 Finally, just register your custom components by adding them to corresponding [registry](https://github.com/allenai/RL4LMs/blob/main/rl4lms/envs/text_generation/registry.py), after which they can be used directly from configs similar to pre-defined components :wave:
 
+## Crowdsourcing templates
+
+We have provided the crowdsourcing templates we used on mechanical turk, along with example inputs in `scripts/crowdworking_templates`. You might find these a helpful starting point either for evaluating your own model's generations, or for gathering training data for a learned reward function.
+
 ---
 
 # Logging and Experiment Results
