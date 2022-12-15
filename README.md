@@ -15,13 +15,14 @@ Paper Link: https://arxiv.org/abs/2210.01241
 Website Link: https://rl4lms.apps.allenai.org/
 
 Thoroughly **tested** and **benchmarked** with over **2000 experiments** :fire: (GRUE benchmark :trophy:) on a comprehensive set of: 
-- 6 different Natural Language Processing (NLP) Tasks:
+- 7 different Natural Language Processing (NLP) Tasks:
     - Summarization
     - Generative Commonsense Reasoning
     - IMDB Sentiment-based Text Continuation
     - Table-to-text generation
     - Abstractive Question Answering
     - Machine Translation
+    - Dialogue Generation
 - Different types of NLG metrics (20+) which can be used as reward functions:
     - Lexical Metrics (eg: ROUGE, BLEU, SacreBLEU, METEOR)
     - Semantic Metrics (eg: BERTSCORE, BLEURT)
@@ -37,6 +38,9 @@ All of these building blocks can be customizable allowing users to train transfo
 - Fixed compatibility issues with some Seq2seq models such as BART, blendorbot etc
 - Implemented data parallel support
 - Refactored policy classes
+
+## Recent updates (v0.2.1) 
+- Minor logging updates
 
 ---
 # Install
