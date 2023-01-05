@@ -133,16 +133,16 @@ class LMActorCriticPolicy(BasePolicy):
         self._action_space = action_space
         self._apply_model_parallel = apply_model_parallel
         self._build_model_heads(model_name)
-        self._setup_optimizer(optimizer_kwargs, weight_decay, optimizer_class)
+        self._optimizer_class = optimizer_class
+        self._weight_decay = weight_decay
+        self._optimizer_kwargs = optimizer_kwargs
+        # self._setup_optimizer(optimizer_kwargs, weight_decay, optimizer_class)
         self._action_dist = CategoricalDistribution(self._action_space.n)
         self._generation_kwargs = generation_kwargs
         self._prompt_truncation_side = prompt_truncation_side
 
-    def _setup_optimizer(
+    def setup_optimizer(
         self,
-        optimizer_kwargs: Dict[str, Any],
-        weight_decay: float,
-        optimizer_class: torch.optim,
     ):
         params = list(self.named_parameters())
 
@@ -150,16 +150,17 @@ class LMActorCriticPolicy(BasePolicy):
         optimizer_grouped_parameters = [
             {
                 "params": [p for n, p in params if not any(nd in n for nd in no_decay)],
-                "weight_decay": weight_decay,
+                "weight_decay": self._weight_decay,
             },
             {
                 "params": [p for n, p in params if any(nd in n for nd in no_decay)],
                 "weight_decay": 0.0,
             },
         ]
-        self.optimizer = optimizer_class(
-            optimizer_grouped_parameters, **optimizer_kwargs
+        optimizer = self._optimizer_class(
+            optimizer_grouped_parameters, **self._optimizer_kwargs
         )
+        return optimizer
 
     def forward(self, *args, **kwargs):
         # dummy just to comply with base policy

@@ -78,21 +78,6 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
             self._value_model.config.hidden_size, 1, bias=False
         )
 
-        # apply model parallel
-        if torch.cuda.is_available():
-            if self._apply_model_parallel and self._policy_model.is_parallelizable:
-                self._policy_model.parallelize()
-                self._ref_model.parallelize()
-                self._value_model.parallelize()
-                self._value_head = self._value_head.to(self.device)
-            else:  # else defaults to data parallel
-                self._policy_model = torch.nn.DataParallel(self._policy_model)
-                self._ref_model = torch.nn.DataParallel(self._ref_model)
-                self._value_model = torch.nn.DataParallel(self._value_model)
-                self._value_head = torch.nn.DataParallel(
-                    self._value_head.to(self.device)
-                )
-
     def _prepare_inputs_for_model(
         self,
         model: AutoModelForCausalLM,
@@ -272,12 +257,8 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         return PolicyType.CAUSAL
 
     def to(self, device: str):
-        if self._apply_model_parallel:
-            self._value_head = self._value_head.to(device)
-            return self
-        else:
-            return super().to(device)
-        
+        return self
+
     def get_distribution(self, obs: TensorDict, detach=False):
         input_ids = obs["input_encoded_pt"].int()
         attention_mask = obs["input_attention_mask_pt"]
@@ -296,20 +277,20 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
                 output = self._policy_model(output_hidden_states=True, **model_inputs)
         else:
             model_inputs = self._prepare_inputs_for_model(
-                    self._policy_model, input_ids, past_model_kwargs
-                )
+                self._policy_model, input_ids, past_model_kwargs
+            )
 
             # forward pass to transformers
             output = self._policy_model(output_hidden_states=True, **model_inputs)
-
 
         # compute action probs - policy head
         next_token_logits = output.logits[:, -1, :]
         dist = self._action_dist.proba_distribution(action_logits=next_token_logits)
         return dist
-    
+
     def predict_values(self, obs: TensorDict):
         return self.forward_value(obs).values
+
 
 class MaskedCausalLMActorCriticPolicy(
     CausalLMActorCriticPolicy, MaskableActorCriticWarmStartMixin
