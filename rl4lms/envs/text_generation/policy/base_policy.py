@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import torch
+from accelerate import Accelerator
 from gym.spaces import Discrete
 from gym.spaces.dict import Dict as DictSpace
 from stable_baselines3.common.distributions import CategoricalDistribution
@@ -179,6 +180,7 @@ class LMActorCriticPolicy(BasePolicy):
     def generate(
         self,
         tokenizer: AutoTokenizer,
+        accelerator: Accelerator,
         texts: List[str] = None,
         max_prompt_length: int = None,
         input_ids: torch.tensor = None,
@@ -227,9 +229,9 @@ class LMActorCriticPolicy(BasePolicy):
             generation_kwargs_ = gen_kwargs
 
         # generate
-        gen_output = unwrap_model(self._policy_model).generate(
-            inputs=input_ids.to(self.get_policy_first_device()),
-            attention_mask=attention_mask.to(self.get_policy_first_device()),
+        gen_output = accelerator.unwrap_model(self._policy_model).generate(
+            inputs=input_ids.to(accelerator.device),
+            attention_mask=attention_mask.to(accelerator.device),
             return_dict_in_generate=True,
             output_scores=True,
             **generation_kwargs_,

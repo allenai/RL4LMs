@@ -256,9 +256,6 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
     def get_policy_type(self):
         return PolicyType.CAUSAL
 
-    def to(self, device: str):
-        return self
-
     def get_distribution(self, obs: TensorDict, detach=False):
         input_ids = obs["input_encoded_pt"].int()
         attention_mask = obs["input_attention_mask_pt"]

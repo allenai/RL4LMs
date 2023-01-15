@@ -205,34 +205,39 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
 
     def _prepare_accelerate(self):
         # hold accelerator objects here
-        self.accelerator = Accelerator(device_placement=False)
+        self.accelerator = Accelerator()
 
         # create optimizer first
         optimizer = self._alg.policy.setup_optimizer()
 
         # prepare dataloaders
-        self._val_dataloader = create_dataloader(self._samples_by_split["val"])
-        self._test_dataloader = create_dataloader(self._samples_by_split["test"])
+        self._dataloaders = {
+            "val": create_dataloader(self._samples_by_split["val"], self._eval_batch_size),
+            "test": create_dataloader(self._samples_by_split["test"], self._eval_batch_size),
+        }
 
         # prepare policy, optimizer and dataloader
         (
             self._alg.policy,
             self._alg.optimizer,
-            self._val_dataloader,
-            self._test_dataloader,
-        ) = self.accelerator.prepare(self._alg.policy, optimizer)
+            self._dataloaders["val"],
+            self._dataloaders["test"],
+        ) = self.accelerator.prepare(self._alg.policy, 
+                                     optimizer, 
+                                     self._dataloaders["val"], 
+                                     self._dataloaders["test"])
 
     def _evaluate_on_datapools(self, epoch: int, splits: List[str] = ["val", "test"]):
         for split in splits:
             evaluate_on_samples(
                 policy=self._alg.policy,
                 tokenizer=self._tokenizer,
-                samples=self._samples_by_split[split],
-                batch_size=self._eval_batch_size,
+                dataloader=self._dataloaders[split],
                 max_prompt_length=self._max_prompt_length,
                 metrics=self._metrics,
                 epoch=epoch,
                 split_name=split,
+                accelerator=self.accelerator,
                 tracker=self._tracker,
                 gen_kwargs=self._eval_gen_kwargs,
             )

@@ -15,8 +15,11 @@ class TextGenDataset(Dataset):
     def __getitem__(self, idx: int) -> Sample:
         return self._samples[idx]
 
+def collate_fn(batch: List[Sample]):
+    # dummy collate just to return the 
+    return batch
 
 def create_dataloader(samples: List[Sample], batch_size: int):
     dataset = TextGenDataset(samples)
-    dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False)
+    dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     return dataloader
