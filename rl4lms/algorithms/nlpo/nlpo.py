@@ -40,6 +40,7 @@ class NLPO(OnPolicyAlgorithm):
     :param n_steps: The number of steps to run for each environment per update
         (i.e. batch size is n_steps * n_env where n_env is number of environment copies running in parallel)
     :param batch_size: Minibatch size
+    :param gradient_accumulation_steps: Number of gradient accumulation steps.
     :param n_epochs: Number of epoch when optimizing the surrogate loss
     :param gamma: Discount factor
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
@@ -83,6 +84,7 @@ class NLPO(OnPolicyAlgorithm):
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 2048,
         batch_size: Optional[int] = 64,
+        gradient_accumulation_steps: int = 1,
         n_epochs: int = 10,
         gamma: float = 0.99,
         gae_lambda: float = 0.95,
@@ -128,6 +130,7 @@ class NLPO(OnPolicyAlgorithm):
         )
 
         self.batch_size = batch_size
+        self.gradient_accumulation_steps = gradient_accumulation_steps
         self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
@@ -177,6 +180,7 @@ class NLPO(OnPolicyAlgorithm):
                 assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, " "pass `None` to deactivate vf clipping"
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
+        self.policy.optimizer.zero_grad()
 
     def _init_callback(
         self,
@@ -335,6 +339,7 @@ class NLPO(OnPolicyAlgorithm):
         for epoch in range(self.n_epochs):
             approx_kl_divs = []
             # Do a complete pass on the rollout buffer
+            acc_steps = 0
             for batch_ix, rollout_data in enumerate(list(self.rollout_buffer.get(self.batch_size))):
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
@@ -413,14 +418,24 @@ class NLPO(OnPolicyAlgorithm):
                             f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
                     break
 
-                # Optimization step
-                self.policy.optimizer.zero_grad()
+                # Compute gradients
                 loss.backward()
-                # Clip grad norm
+                acc_steps += 1
+                
+                # Update parameters using computed gradients
+                if batch_ix % self.gradient_accumulation_steps == 0:
+                    acc_steps = 0
+                    th.nn.utils.clip_grad_norm_(
+                        self.policy.parameters(), self.max_grad_norm)
+                    self.policy.optimizer.step()
+                    self.policy.optimizer.zero_grad()
+
+            # Update parameters using computed gradients if never reached gradient_accumulation_steps in the end
+            if acc_steps > 0:
                 th.nn.utils.clip_grad_norm_(
                     self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
-
+                self.policy.optimizer.zero_grad()
             if not continue_training:
                 break
 
