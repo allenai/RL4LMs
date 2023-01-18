@@ -423,7 +423,7 @@ class NLPO(OnPolicyAlgorithm):
                 acc_steps += 1
                 
                 # Update parameters using computed gradients
-                if batch_ix % self.gradient_accumulation_steps == 0:
+                if (batch_ix % self.gradient_accumulation_steps == 0) and (batch_ix > 0):
                     acc_steps = 0
                     th.nn.utils.clip_grad_norm_(
                         self.policy.parameters(), self.max_grad_norm)
