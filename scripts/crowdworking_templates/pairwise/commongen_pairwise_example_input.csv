@@ -1,0 +1,10 @@
+concept,choice_A,choice_B,choice_A_id,choice_B_id
+shirt street walk wear,a man is wearing a shirt as he walks down the street.,a man wears a shirt as he walks down the street.,supervised,pref_model
+arm forehead kiss neck wrap,a man wraps his arms around his neck and kisses his forehead.,"a man kisses his arm, forehead, and wraps his neck.",supervised,pref_model
+bike break ride take,a man takes a break from riding his bike.,a man is riding a bike and taking a break.,pref_model,supervised
+cut hold saw wood,a man holds a saw to cut wood.,a man is holding a saw to cut a piece of wood.,pref_model,supervised
+chair head shave sit,a man shaves his head in a chair and sits down.,a man sits in a chair and shaves his head.,pref_model,supervised
+ear hold phone talk toddler,a toddler is holding a phone in his ear and talking.,a toddler holds his ear up and talks to a phone.,supervised,pref_model
+catch dog mouth toy,a dog catches a toy in his mouth.,a dog is catching a toy in his mouth.,pref_model,supervised
+hill jump ramp ride,a man is jumping off a ramp and riding down a hill.,a man jumps off a ramp and rides down a hill.,supervised,pref_model
+feed fish hand tank,a hand feeds a fish in a tank.,a man is feeding a fish in his hand in a tank.,pref_model,supervised

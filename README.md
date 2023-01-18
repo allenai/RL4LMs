@@ -15,13 +15,14 @@ Paper Link: https://arxiv.org/abs/2210.01241
 Website Link: https://rl4lms.apps.allenai.org/
 
 Thoroughly **tested** and **benchmarked** with over **2000 experiments** :fire: (GRUE benchmark :trophy:) on a comprehensive set of: 
-- 6 different Natural Language Processing (NLP) Tasks:
+- 7 different Natural Language Processing (NLP) Tasks:
     - Summarization
     - Generative Commonsense Reasoning
     - IMDB Sentiment-based Text Continuation
     - Table-to-text generation
     - Abstractive Question Answering
     - Machine Translation
+    - Dialogue Generation
 - Different types of NLG metrics (20+) which can be used as reward functions:
     - Lexical Metrics (eg: ROUGE, BLEU, SacreBLEU, METEOR)
     - Semantic Metrics (eg: BERTSCORE, BLEURT)
@@ -31,6 +32,15 @@ Thoroughly **tested** and **benchmarked** with over **2000 experiments** :fire: 
 - Actor-Critic Policies supporting causal LMs (eg. GPT-2/3) and seq2seq LMs (eg. T5, BART)
 
 All of these building blocks can be customizable allowing users to train transformer-based LMs to optimize any arbitrary reward function on any dataset of their choice.
+
+## Recent updates (v0.2.0) on 23-Nov-22
+- Added daily dialog task
+- Fixed compatibility issues with some Seq2seq models such as BART, blendorbot etc
+- Implemented data parallel support
+- Refactored policy classes
+
+## Recent updates (v0.2.1) 
+- Minor logging updates
 
 ---
 # Install
@@ -281,6 +291,10 @@ We provide LM based actor-critic policy [implementations](https://github.com/all
 ## Registry
 Finally, just register your custom components by adding them to corresponding [registry](https://github.com/allenai/RL4LMs/blob/main/rl4lms/envs/text_generation/registry.py), after which they can be used directly from configs similar to pre-defined components :wave:
 
+## Crowdsourcing templates
+
+We have provided the crowdsourcing templates we used on mechanical turk, along with example inputs in `scripts/crowdworking_templates`. You might find these a helpful starting point either for evaluating your own model's generations, or for gathering training data for a learned reward function.
+
 ---
 
 # Logging and Experiment Results
@@ -312,3 +326,9 @@ WANDB_API_KEY=<YOUR-WANDB-API-KEY-HERE>  python scripts/training/train_text_gene
   year={2022}
 }
 ```
+
+# Questions/Discussion/Ideas?
+
+For discussion, questions, ideas exchange, join our slack channel 
+[![Slack](https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white)](https://join.slack.com/t/slack-1sa3880/shared_invite/zt-1idqlnbnm-NIiZeMIOpYReXfX9uIT_PA)
+

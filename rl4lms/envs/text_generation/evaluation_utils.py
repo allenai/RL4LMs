@@ -1,34 +1,36 @@
+from typing import Any, Dict, List
+
 from stable_baselines3.common.policies import BasePolicy
+from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from rl4lms.data_pools.custom_text_generation_pools import Sample
-from rl4lms.envs.text_generation.metric import BaseMetric
 from rl4lms.envs.text_generation.logging_utils import Tracker
-from typing import List, Dict, Any
-from tqdm import tqdm
+from rl4lms.envs.text_generation.metric import BaseMetric
 
 
 def get_batch(samples: List[Sample], batch_size: int):
     current_ix = 0
     n_samples = len(samples)
     while current_ix < n_samples:
-        current_batch = samples[current_ix:current_ix+batch_size]
+        current_batch = samples[current_ix : current_ix + batch_size]
         yield current_batch
         current_ix += batch_size
 
 
-def evaluate_on_samples(policy: BasePolicy,
-                        tokenizer: AutoTokenizer,
-                        samples: List[Sample],
-                        batch_size: int,
-                        max_prompt_length: int,
-                        metrics: List[BaseMetric],
-                        epoch: int,
-                        split_name: str,
-                        tracker: Tracker = None,
-                        dt_control_token: str = '',
-                        gen_kwargs: Dict[str, Any] = None,
-                        ):
+def evaluate_on_samples(
+    policy: BasePolicy,
+    tokenizer: AutoTokenizer,
+    samples: List[Sample],
+    batch_size: int,
+    max_prompt_length: int,
+    metrics: List[BaseMetric],
+    epoch: int,
+    split_name: str,
+    tracker: Tracker = None,
+    dt_control_token: str = "",
+    gen_kwargs: Dict[str, Any] = None,
+):
     # generate text by batch
     all_generated_texts = []
     all_ref_texts = []
@@ -37,8 +39,8 @@ def evaluate_on_samples(policy: BasePolicy,
     n_samples = len(samples)
     for batch in tqdm(list(get_batch(samples, batch_size)), desc="Evaluating"):
         batch_generated_texts = generate_text(
-            policy, tokenizer, batch, max_prompt_length,
-            dt_control_token, gen_kwargs)
+            policy, tokenizer, batch, max_prompt_length, dt_control_token, gen_kwargs
+        )
         batch_ref_texts = [sample.references for sample in batch]
         batch_prompt_texts = [sample.prompt_or_input_text for sample in batch]
         batch_meta_infos = [sample.meta_data for sample in batch]
@@ -53,8 +55,13 @@ def evaluate_on_samples(policy: BasePolicy,
     if metrics is not None:
         for metric in metrics:
             metric_dict = metric.compute(
-                all_prompt_texts, all_generated_texts, all_ref_texts,
-                all_meta_infos, policy.get_language_model(), split_name)
+                all_prompt_texts,
+                all_generated_texts,
+                all_ref_texts,
+                all_meta_infos,
+                policy.get_language_model(),
+                split_name,
+            )
 
             for metric_key, (sample_scores, corpus_score) in metric_dict.items():
                 if sample_scores is None:
@@ -64,14 +71,20 @@ def evaluate_on_samples(policy: BasePolicy,
 
     # aggregate sample metric scores
     sample_predictions_dict = []
-    for ix, (sample, prompt_text, generated_text, ref_texts) in enumerate(zip(samples, all_prompt_texts, all_generated_texts, all_ref_texts)):
+    for ix, (sample, prompt_text, generated_text, ref_texts) in enumerate(
+        zip(samples, all_prompt_texts, all_generated_texts, all_ref_texts)
+    ):
         sample_prediction = {
             "split_name": split_name,
             "sample_id": sample.id,
             "prompt_text": prompt_text,
             "generated_text": generated_text,
-            "ref_text": "".join([f"<START-{ref_ix+1}>"+ref_text+f"<END-{ref_ix+1}>"
-                                 for ref_ix, ref_text in enumerate(ref_texts)]),
+            "ref_text": "".join(
+                [
+                    f"<START-{ref_ix+1}>" + ref_text + f"<END-{ref_ix+1}>"
+                    for ref_ix, ref_text in enumerate(ref_texts)
+                ]
+            ),
         }
         for metric_key, sample_scores in sample_scores_by_metric.items():
             sample_prediction[metric_key] = sample_scores[ix]
@@ -84,17 +97,18 @@ def evaluate_on_samples(policy: BasePolicy,
         tracker.log_metrics(epoch, split_name, corpus_level_metrics)
 
 
-def generate_text(policy: BasePolicy,
-                  tokenizer: AutoTokenizer,
-                  samples: List[Sample],
-                  max_prompt_length: int,
-                  dt_control_token: str,
-                  gen_kwargs: Dict[str, Any]
-                  ):
-    prompt_texts = [dt_control_token +
-                    sample.prompt_or_input_text for sample in samples]
-    generated_texts = policy.generate(tokenizer,
-                                      prompt_texts,
-                                      max_prompt_length,
-                                      gen_kwargs=gen_kwargs)["gen_texts"]
+def generate_text(
+    policy: BasePolicy,
+    tokenizer: AutoTokenizer,
+    samples: List[Sample],
+    max_prompt_length: int,
+    dt_control_token: str,
+    gen_kwargs: Dict[str, Any],
+):
+    prompt_texts = [
+        dt_control_token + sample.prompt_or_input_text for sample in samples
+    ]
+    generated_texts = policy.generate(
+        tokenizer, prompt_texts, max_prompt_length, gen_kwargs=gen_kwargs
+    ).gen_texts
     return generated_texts

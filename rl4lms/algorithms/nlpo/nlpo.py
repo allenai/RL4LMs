@@ -21,6 +21,7 @@ from rl4lms.algorithms.common.maskable.policies import MaskableActorCriticPolicy
 from rl4lms.algorithms.common.maskable.utils import get_action_masks, is_masking_supported
 from rl4lms.algorithms.nlpo.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
 from rl4lms.envs.text_generation.logging_utils import Tracker
+from rl4lms.envs.text_generation.policy.base_policy import EvaluateActionsOutput
 
 
 class NLPO(OnPolicyAlgorithm):
@@ -132,6 +133,7 @@ class NLPO(OnPolicyAlgorithm):
         self.clip_range_vf = clip_range_vf
         self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
+        self._tracker = tracker
 
         if _init_setup_model:
             self._setup_model()
@@ -333,17 +335,15 @@ class NLPO(OnPolicyAlgorithm):
         for epoch in range(self.n_epochs):
             approx_kl_divs = []
             # Do a complete pass on the rollout buffer
-            for rollout_data in self.rollout_buffer.get(self.batch_size):
+            for batch_ix, rollout_data in enumerate(list(self.rollout_buffer.get(self.batch_size))):
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to long
                     actions = rollout_data.actions.long().flatten()
 
-                values, log_prob, entropy = self.policy.evaluate_actions(
-                    rollout_data.observations,
-                    actions,
-                    action_masks=rollout_data.action_masks,
-                )
+                evaluation_output: EvaluateActionsOutput = self.policy.evaluate_actions(
+                    rollout_data.observations, actions, action_masks=rollout_data.action_masks)
+                values, log_prob, entropy = evaluation_output.values, evaluation_output.log_prob, evaluation_output.entropy
 
                 values = values.flatten()
                 # Normalize advantage
@@ -354,6 +354,11 @@ class NLPO(OnPolicyAlgorithm):
 
                 # ratio between old and new policy, should be one at the first iteration
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)
+                # if batch_ix == 0 and epoch == 0:
+                #     assert th.allclose(th.mean(ratio), th.tensor(
+                #         1.0), atol=1e-3), "Cannot reconstruct probability distribution. Please check your policy network implementation"
+
+                #     assert th.allclose(values, rollout_data.old_values, atol=1e-3), "Cannot reconstruct values. Please check your value network implementation"
 
                 # clipped surrogate loss
                 policy_loss_1 = advantages * ratio
@@ -436,6 +441,15 @@ class NLPO(OnPolicyAlgorithm):
         self.logger.record("train/clip_range", clip_range)
         if self.clip_range_vf is not None:
             self.logger.record("train/clip_range_vf", clip_range_vf)
+
+        train_info = {
+            "ppo/entropy_loss":  np.mean(entropy_losses).item(),
+            "ppo/policy_gradient_loss": np.mean(pg_losses).item(),
+            "ppo/value_loss": np.mean(value_losses).item(),
+            "ppo/approx_kl": np.mean(approx_kl_divs).item(),
+        }
+
+        self._tracker.log_training_infos(train_info)
 
     def learn(
         self,

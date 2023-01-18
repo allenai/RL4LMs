@@ -1,0 +1,53 @@
+tokenizer:
+  model_name: gpt2
+  padding_side: left
+  truncation_side: left
+  pad_token_as_eos_token: True
+  max_length: 128
+
+datapool:
+  id: "daily_dialog"
+  args:
+    context_size: 5
+
+alg:
+  id: supervised
+  training_args:
+    per_device_train_batch_size: 32
+    logging_steps: 300
+    num_train_epochs: 20
+    lr_scheduler_type: "constant"
+    learning_rate: 0.00001
+    save_total_limit: 1
+  model_type: causal
+  model_name: gpt2
+  generation_kwargs:
+    do_sample: True
+    top_k: 20
+    min_length: 2
+    max_new_tokens: 20
+    post_processing_fn: null
+
+train_evaluation:
+  eval_batch_size: 256
+  metrics:
+    - id: intent_accuracy
+    - id: causal_perplexity
+      args:
+        tokenizer_id: gpt2
+        stride: 128
+        model_type: causal
+    - id: diversity
+      args: {}
+    - id: meteor
+      args: {}
+    - id: rouge
+    - id: bleu
+      args: {}
+    - id: bert_score
+      args:
+        language: en
+    - id: sacre_bleu
+      args:
+        tokenize: "intl"
+
