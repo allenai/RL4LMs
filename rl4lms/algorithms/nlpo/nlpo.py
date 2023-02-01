@@ -114,7 +114,7 @@ class NLPO(OnPolicyAlgorithm):
             use_sde=False,
             sde_sample_freq=-1,
             tensorboard_log=tensorboard_log,
-            create_eval_env=create_eval_env,
+            # create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             seed=seed,
