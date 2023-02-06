@@ -154,6 +154,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
         env_config: Dict[str, Any],
         on_policy_alg_config: Dict[str, Any],
         train_eval_config: Dict[str, Any],
+        accelerator: Accelerator,
         tracker: Tracker = None,
         experiment_name: str = "",
     ):
@@ -163,6 +164,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
         self._env_config = env_config
         self._on_policy_alg_config = on_policy_alg_config
         self._train_eval_config = train_eval_config
+        self._accelerator = accelerator
         self._tracker = tracker
         self._experiment_name = experiment_name
         self._setup()
@@ -204,9 +206,6 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
         self._prepare_accelerate()
 
     def _prepare_accelerate(self):
-        # hold accelerator objects here
-        self.accelerator = Accelerator()
-
         # create optimizer first
         optimizer = self._alg.policy.setup_optimizer()
 
@@ -222,7 +221,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
             self._alg.optimizer,
             self._dataloaders["val"],
             self._dataloaders["test"],
-        ) = self.accelerator.prepare(self._alg.policy, 
+        ) = self._accelerator.prepare(self._alg.policy, 
                                      optimizer, 
                                      self._dataloaders["val"], 
                                      self._dataloaders["test"])
@@ -237,7 +236,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
                 metrics=self._metrics,
                 epoch=epoch,
                 split_name=split,
-                accelerator=self.accelerator,
+                accelerator=self._accelerator,
                 tracker=self._tracker,
                 gen_kwargs=self._eval_gen_kwargs,
             )

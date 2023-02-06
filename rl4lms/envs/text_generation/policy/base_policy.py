@@ -98,6 +98,8 @@ class GenerationOutputs:
     gen_texts: List[str]
     # action masks
     action_masks: List[torch.tensor] = None
+    # correponding sample ids (used for gathering generations across distributed processes)
+    sample_ids : List[int] = None
 
 
 class LMActorCriticPolicy(BasePolicy):
@@ -182,10 +184,12 @@ class LMActorCriticPolicy(BasePolicy):
         tokenizer: AutoTokenizer,
         accelerator: Accelerator,
         texts: List[str] = None,
+        sample_ids: torch.tensor = None,
         max_prompt_length: int = None,
         input_ids: torch.tensor = None,
         attention_mask: torch.tensor = None,
         gen_kwargs: Dict[str, Any] = None,
+        gather_from_devices: bool = True
     ) -> GenerationOutputs:
 
         # if it different from rollout gen kwargs
@@ -237,6 +241,14 @@ class LMActorCriticPolicy(BasePolicy):
             **generation_kwargs_,
         )
 
+
+        if gather_from_devices:
+            # gather ids from all devices
+            gathered_sample_ids = accelerator.gather_for_metrics(sample_ids).tolist()
+            gen_output = accelerator.gather_for_metrics(gen_output)
+        else:
+            gathered_sample_ids = None
+
         # number of tokens generated
         seq_length = len(gen_output["scores"])
 
@@ -261,7 +273,7 @@ class LMActorCriticPolicy(BasePolicy):
             step_wise_actions.append(actions_at_step)
 
         gen_output = GenerationOutputs(
-            step_wise_logprobs, step_wise_actions, gen_tokens, gen_texts
+            step_wise_logprobs, step_wise_actions, gen_tokens, gen_texts, None, gathered_sample_ids
         )
         return gen_output
 

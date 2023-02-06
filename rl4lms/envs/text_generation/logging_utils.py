@@ -21,6 +21,7 @@ class Tracker:
                  entity_name: str = None,
                  wandb_log: bool = False,
                  log_level: int = logging.DEBUG,
+                 is_main_process: bool = False,
         ):
         self._log_level = log_level
         self._base_path_to_store_results = base_path_to_store_results
@@ -29,6 +30,7 @@ class Tracker:
         self._project_name = project_name
         self._entity_name = entity_name
         self._wandb_log = wandb_log
+        self._is_main_process = is_main_process
         self._init()
 
     def _init(self):
@@ -37,6 +39,7 @@ class Tracker:
             self._base_path_to_store_results,
             self._project_name,
             self._experiment_name)
+
         os.makedirs(self._run_path, exist_ok=True)
 
         # store also the config into it
