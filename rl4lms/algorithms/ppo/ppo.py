@@ -5,6 +5,7 @@ import numpy as np
 import torch as th
 from gym import spaces
 from torch.nn import functional as F
+from accelerate import Accelerator
 
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, MultiInputActorCriticPolicy
@@ -78,6 +79,7 @@ class PPO(OnPolicyAlgorithm):
         policy: Union[str, Type[ActorCriticPolicy]],
         env: Union[GymEnv, str],
         tracker: Tracker,
+        accelerator: Accelerator,
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 2048,
         batch_size: int = 64,
@@ -161,6 +163,7 @@ class PPO(OnPolicyAlgorithm):
         self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
         self._tracker = tracker
+        self.accelerator = accelerator
 
         if _init_setup_model:
             self._setup_model()
@@ -180,10 +183,15 @@ class PPO(OnPolicyAlgorithm):
         """
         Update policy using the currently gathered rollout buffer.
         """
+
+        # probably wait for every other process
+        self.accelerator.wait_for_everyone()
+
         # Switch to train mode (this affects batch norm / dropout)
         # self.policy.set_training_mode(True)
         # Update optimizer learning rate
-        self._update_learning_rate(self.policy.optimizer)
+        #self._update_learning_rate(self.policy.optimizer)
+        
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
         # Optional: clip range for the value function
@@ -212,7 +220,7 @@ class PPO(OnPolicyAlgorithm):
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
 
-                evaluation_output: EvaluateActionsOutput = self.policy.evaluate_actions(
+                evaluation_output: EvaluateActionsOutput = self.accelerator.unwrap_model(self.policy).evaluate_actions(
                     rollout_data.observations, actions)
                 values, log_prob, entropy = evaluation_output.values, evaluation_output.log_prob, evaluation_output.entropy
                 values = values.flatten()
@@ -284,12 +292,15 @@ class PPO(OnPolicyAlgorithm):
                     break
 
                 # Optimization step
-                self.policy.optimizer.zero_grad()
-                loss.backward()
+                self.optimizer.zero_grad()
+                #loss.backward()
+                
+                self.accelerator.backward(loss)
+                
                 # Clip grad norm
                 th.nn.utils.clip_grad_norm_(
                     self.policy.parameters(), self.max_grad_norm)
-                self.policy.optimizer.step()
+                self.optimizer.step()
 
             if not continue_training:
                 break
@@ -297,6 +308,8 @@ class PPO(OnPolicyAlgorithm):
         self._n_updates += self.n_epochs
         explained_var = explained_variance(
             self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
+
+        # TBD - gather training stats
 
         # Logs
         self.logger.record("train/entropy_loss", np.mean(entropy_losses))

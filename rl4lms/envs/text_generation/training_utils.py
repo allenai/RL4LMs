@@ -113,6 +113,7 @@ def build_alg(
     alg_config: Dict[str, Any],
     env: TextGenEnv,
     tracker: Tracker,
+    accelerator: Accelerator,
     policy_state: Dict[str, Any],
     alg_state: Dict[str, Any],
 ):
@@ -134,6 +135,7 @@ def build_alg(
         alg_kwargs,
         alg_config["kl_div"]["coeff"],
         tracker,
+        accelerator,
         alg_config["kl_div"].get("target_kl", None),
         alg_config["kl_div"].get("norm_reward", False),
     )
@@ -188,6 +190,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
             self._on_policy_alg_config,
             self._env,
             self._tracker,
+            self._accelerator,
             self._policy_state_dict,
             self._alg_state_dict,
         )
@@ -246,30 +249,30 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
         iter_start = self._trainer_state["current_iter"]
         self._evaluate_on_datapools(epoch=iter_start)
 
-        # # train for given number of iters
-        # for epoch in range(iter_start, self._n_iters):
-        #     # current state
-        #     self._trainer_state["current_iter"] = epoch
+        # train for given number of iters
+        for epoch in range(iter_start, self._n_iters):
+            # current state
+            self._trainer_state["current_iter"] = epoch
 
-        #     # inner rollout and learn loop for on-policy algorithm
-        #     self._alg.learn(self._n_steps_per_iter)
+            # inner rollout and learn loop for on-policy algorithm
+            self._alg.learn(self._n_steps_per_iter)
 
-        #     # save the policy checkpoint
-        #     if (epoch + 1) % self._train_eval_config.get("save_every", 20) == 0:
-        #         self.save_trainer_state(
-        #             self._tracker, self._alg.policy, self._trainer_state)
+            # save the policy checkpoint
+            if (epoch + 1) % self._train_eval_config.get("save_every", 20) == 0:
+                self.save_trainer_state(
+                    self._tracker, self._alg.policy, self._trainer_state)
 
-        #     # evaluate on val set in the given intervals
-        #     if (epoch + 1) % self._train_eval_config["eval_every"] == 0:
-        #         self._evaluate_on_datapools(epoch=epoch, splits=["val"])
+            # evaluate on val set in the given intervals
+            if (epoch + 1) % self._train_eval_config["eval_every"] == 0:
+                self._evaluate_on_datapools(epoch=epoch, splits=["val"])
 
-        # # finally evaluate on val and test samples
-        # self._evaluate_on_datapools(epoch=epoch)
+        # finally evaluate on val and test samples
+        self._evaluate_on_datapools(epoch=epoch)
 
-        # # save model here - we save only the language model
-        # if self._tracker is not None:
-        #     self._tracker.save_auto_model(
-        #         self._alg.policy.get_language_model())
+        # save model here - we save only the language model
+        if self._tracker is not None:
+            self._tracker.save_auto_model(
+                self._alg.policy.get_language_model())
 
 
 class SupervisedTrainer:

@@ -3,6 +3,8 @@ from argparse import ArgumentParser
 
 import yaml
 
+from accelerate import Accelerator
+
 from rl4lms.envs.text_generation.logging_utils import Tracker
 from rl4lms.envs.text_generation.training_utils import (
     OnPolicyTrainer,
@@ -23,6 +25,9 @@ def main(
     with open(config_path, "r") as fp:
         config = yaml.safe_load(fp)
 
+    # init accelerator
+    accelerator = Accelerator()
+
     # load tracker
     tracker = Tracker(
         base_path_to_store_results,
@@ -31,6 +36,7 @@ def main(
         experiment_name,
         entity_name,
         log_to_wandb,
+        accelerator.is_main_process,
     )
 
     # instantiate the trainer here
@@ -50,6 +56,7 @@ def main(
             env_config=config["env"],
             on_policy_alg_config=config["alg"],
             train_eval_config=config["train_evaluation"],
+            accelerator=accelerator,
             tracker=tracker,
         )
     trainer.train_and_eval()

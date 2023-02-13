@@ -10,6 +10,7 @@ from stable_baselines3.common.utils import obs_as_tensor
 from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.vec_env import VecEnv
 from transformers import PreTrainedTokenizer
+from accelerate import Accelerator
 
 from rl4lms.algorithms.common.maskable.buffers import MaskableDictRolloutBuffer
 from rl4lms.envs.text_generation.kl_controllers import KLController
@@ -92,6 +93,7 @@ def wrap_onpolicy_alg(
     alg_kwargs: Dict[str, Any],
     kl_coeff: float,
     tracker: Tracker,
+    accelerator: Accelerator,
     target_kl: float = None,
     norm_reward: bool = False,
 ):
@@ -101,10 +103,12 @@ def wrap_onpolicy_alg(
             alg_kwargs: Dict[str, Any],
             kl_coeff: float,
             tracker: Tracker,
+            accelerator: Accelerator,
             target_kl: float = None,
             norm_reward: bool = False,
         ):
             alg_kwargs["tracker"] = tracker
+            alg_kwargs["accelerator"] = accelerator
             super().__init__(**alg_kwargs)
             self._kl_controller = KLController(kl_coeff, target_kl)
             self.tracker = tracker
@@ -114,7 +118,7 @@ def wrap_onpolicy_alg(
                 self.n_steps * self.env.num_envs,
                 self.observation_space,
                 self.action_space,
-                device=self.device,
+                device=accelerator.device,
                 gamma=self.gamma,
                 gae_lambda=self.gae_lambda,
                 n_envs=1,
@@ -129,13 +133,17 @@ def wrap_onpolicy_alg(
             action_mask: torch.tensor,
         ):
 
+            # send to device
+            for key, item in obs.items():
+                obs[key] = item.to(self.accelerator.device)
+
             policy_kwargs = {
                 "obs": obs,
-                "actions": action,
+                "actions": action.to(self.accelerator.device),
                 "past_model_kwargs": past_state,
             }
             if action_mask is not None:
-                policy_kwargs["action_masks"] = action_mask
+                policy_kwargs["action_masks"] = action_mask.to(self.accelerator.device)
             return policy_kwargs
 
         def generate_batch(
@@ -155,11 +163,13 @@ def wrap_onpolicy_alg(
 
             # generate text using the model
             obs_tensor = obs_as_tensor(current_obs, self.device)
-            generation_inputs = self.policy.get_inputs_for_generation(obs_tensor)
-            gen_output = self.policy.generate(
+            generation_inputs = self.accelerator.unwrap_model(self.policy).get_inputs_for_generation(obs_tensor)
+            gen_output = self.accelerator.unwrap_model(self.policy).generate(
                 input_ids=generation_inputs.inputs,
                 attention_mask=generation_inputs.attention_masks,
                 tokenizer=tokenizer,
+                accelerator=self.accelerator,
+                gather_from_devices=False
             )
 
             # process them one step at a time to collect rollout info
@@ -183,14 +193,14 @@ def wrap_onpolicy_alg(
 
                 # evaluate actions with actions from rollout
                 with torch.no_grad():
-                    obs_tensor = obs_as_tensor(current_obs, self.device)
+                    obs_tensor = obs_as_tensor(current_obs, self.accelerator.device)
 
-                    # get log probs (TBD: generalize this a bit)
+                    # get log probs
                     policy_kwargs = self.get_policy_kwargs(
                         obs_tensor, actions_tensor, policy_past_state, action_mask
                     )
 
-                    policy_outputs: PolicyOutput = self.policy.forward_policy(
+                    policy_outputs: PolicyOutput = self.accelerator.unwrap_model(self.policy).forward_policy(
                         **policy_kwargs
                     )
                     raw_log_probs, log_probs, policy_past_state = (
@@ -210,7 +220,7 @@ def wrap_onpolicy_alg(
                     ), "Infinite values in log probs"
 
                     # get values
-                    value_outputs: ValueOutput = self.policy.forward_value(
+                    value_outputs: ValueOutput = self.accelerator.unwrap_model(self.policy).forward_value(
                         obs_tensor, value_past_state
                     )
                     values, value_past_state = (
@@ -220,7 +230,7 @@ def wrap_onpolicy_alg(
 
                     # get reference log probs
                     ref_policy_outputs: RefPolicyOutput = (
-                        self.policy.get_log_probs_ref_model(
+                        self.accelerator.unwrap_model(self.policy).get_log_probs_ref_model(
                             obs_tensor, actions_tensor, ref_past_state
                         )
                     )
@@ -364,7 +374,7 @@ def wrap_onpolicy_alg(
             tokenizer = tokenizer[0]
 
             # Switch to eval mode
-            self.policy.set_training_mode(False)
+            self.accelerator.unwrap_model(self.policy).set_training_mode(False)
 
             # reset rollout buffer and stats
             rollout_buffer.reset()
@@ -394,6 +404,8 @@ def wrap_onpolicy_alg(
                 "rollout_info/kl_coeff"
             ] = self._kl_controller.kl_coeff
 
+            # TBD - gather rollout stats 
+
             if self.tracker is not None:
                 self.tracker.log_rollout_infos(aggregated_rollout_info)
 
@@ -404,5 +416,5 @@ def wrap_onpolicy_alg(
             return True
 
     # instantiate the wrapped alg
-    alg = OnPolicyAlgText(alg_kwargs, kl_coeff, tracker, target_kl, norm_reward)
+    alg = OnPolicyAlgText(alg_kwargs, kl_coeff, tracker, accelerator, target_kl, norm_reward)
     return alg

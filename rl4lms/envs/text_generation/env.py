@@ -2,6 +2,7 @@ from cmath import inf
 from typing import Dict, Tuple, Optional, List
 
 import torch
+import numpy as np
 from gym import Env, spaces
 from gym.spaces.dict import Dict as DictSpace
 from gym.spaces.discrete import Discrete
@@ -57,24 +58,26 @@ class TextGenEnv(Env):
                 # we have to provide fixed sized inputs (padded) because sb3 support for DictObsersevation is limited
                 # while creating rollout buffers, observations are concatenated for each key
                 "prompt_or_input_encoded_pt": spaces.Box(
-                    low=0, high=self._vocab_size, shape=(self._max_text_length,)
+                    low=0, high=self._vocab_size, shape=(self._max_text_length,), dtype=np.int32
                 ),
                 "prompt_or_input_attention_mask_pt": spaces.Box(
-                    low=0, high=1, shape=(self._max_text_length,)
+                    low=0, high=1, shape=(self._max_text_length,), dtype=np.int32
                 ),
                 "context_encoded_pt": spaces.Box(
-                    low=0, high=self._vocab_size, shape=(self.max_steps,)
+                    low=0, high=self._vocab_size, shape=(self.max_steps,), dtype=np.int32
                 ),
                 "context_attention_mask_pt": spaces.Box(
-                    low=0, high=1, shape=(self.max_steps,)
+                    low=0, high=1, shape=(self.max_steps,), dtype=np.int32
                 ),
                 "input_encoded_pt": spaces.Box(
                     low=0,
                     high=self._vocab_size,
                     shape=(self._max_text_length + self.max_steps,),
+                    dtype=np.int32
                 ),
                 "input_attention_mask_pt": spaces.Box(
-                    low=0, high=1, shape=(self._max_text_length + self.max_steps,)
+                    low=0, high=1, shape=(self._max_text_length + self.max_steps,), 
+                    dtype=np.int32
                 ),
             }
         )
