@@ -260,7 +260,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
             # save the policy checkpoint
             if (epoch + 1) % self._train_eval_config.get("save_every", 20) == 0:
                 self.save_trainer_state(
-                    self._tracker, self._alg.policy, self._trainer_state)
+                    self._tracker, self._accelerator.unwrap_model(self._alg.policy), self._trainer_state)
 
             # evaluate on val set in the given intervals
             if (epoch + 1) % self._train_eval_config["eval_every"] == 0:
@@ -271,8 +271,12 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
 
         # save model here - we save only the language model
         if self._tracker is not None:
+            
+            # wait for every process
+            self._accelerator.wait_for_everyone()
+
             self._tracker.save_auto_model(
-                self._alg.policy.get_language_model())
+                self._accelerator.unwrap_model(self._alg.policy).get_language_model())
 
 
 class SupervisedTrainer:

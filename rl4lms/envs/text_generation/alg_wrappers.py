@@ -398,14 +398,19 @@ def wrap_onpolicy_alg(
             # aggregate rollout info
             aggregated_rollout_info = {}
             for key, values in rollout_info.items():
-                aggregated_rollout_info[key] = np.mean(values).item()
-                aggregated_rollout_info[f"{key}_std"] = np.std(values).item()
+                values = torch.tensor(values, dtype=torch.float32)
+                aggregated_rollout_info[key] = torch.mean(values).to(self.accelerator.device)
+                aggregated_rollout_info[f"{key}_std"] = torch.std(values).to(self.accelerator.device)
             aggregated_rollout_info[
                 "rollout_info/kl_coeff"
-            ] = self._kl_controller.kl_coeff
+            ] = torch.tensor(self._kl_controller.kl_coeff).to(self.accelerator.device)
 
-            # TBD - gather rollout stats 
 
+            # gather rollout stats
+            self.accelerator.wait_for_everyone()
+            aggregated_rollout_info = self._reduce_rollout_infos(accelerator.gather(aggregated_rollout_info))
+            
+            # log rollout infos
             if self.tracker is not None:
                 self.tracker.log_rollout_infos(aggregated_rollout_info)
 
@@ -414,6 +419,11 @@ def wrap_onpolicy_alg(
                 torch.tensor(aggregated_rollout_info["rollout_info/kl_div_mean"])
             )
             return True
+
+        def _reduce_rollout_infos(self, rollout_infos: Dict[str, torch.tensor]):
+            reduced = {key: torch.mean(values).item() for key, values in rollout_infos.items()}
+            return reduced
+
 
     # instantiate the wrapped alg
     alg = OnPolicyAlgText(alg_kwargs, kl_coeff, tracker, accelerator, target_kl, norm_reward)

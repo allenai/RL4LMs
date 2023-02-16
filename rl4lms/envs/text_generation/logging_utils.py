@@ -59,7 +59,7 @@ class Tracker:
         )
 
         # init wandb
-        if self._wandb_log:
+        if self._wandb_log and self._is_main_process:
             self._wandb_run = wandb.init(
                 entity=self._entity_name,
                 project=self._project_name,
@@ -70,81 +70,85 @@ class Tracker:
     def log_predictions(self, epoch: int,
                         split_name: str,
                         predictions: List[Dict]):
-        # log them per epoch in a separate file as they can get huge
-        prediction_file_at_epoch = os.path.join(
-            self._run_path, f"epoch_{epoch}_{split_name}_split_predictions.json")
-        with open(prediction_file_at_epoch, "w") as fp:
-            json.dump(predictions, fp)
+        if self._is_main_process:
+            # log them per epoch in a separate file as they can get huge
+            prediction_file_at_epoch = os.path.join(
+                self._run_path, f"epoch_{epoch}_{split_name}_split_predictions.json")
+            with open(prediction_file_at_epoch, "w") as fp:
+                json.dump(predictions, fp)
 
-        # randomly display few predictions for logging
-        predictions_ = copy.deepcopy(predictions)
-        random.shuffle(predictions_)
-        logging.info(f"Split {split_name} predictions")
-        for pred in predictions_[:10]:
-            logging.info(pred)
+            # randomly display few predictions for logging
+            predictions_ = copy.deepcopy(predictions)
+            random.shuffle(predictions_)
+            logging.info(f"Split {split_name} predictions")
+            for pred in predictions_[:10]:
+                logging.info(pred)
 
-        # for wandb logging, we create a table consisting of predictions
-        # we can create one table per split per epoch
-        if self._wandb_log and len(predictions) > 0:
+            # for wandb logging, we create a table consisting of predictions
+            # we can create one table per split per epoch
+            if self._wandb_log and len(predictions) > 0:
 
-            def to_df(predictions):
-                columns = predictions[0].keys()
-                data_by_column = defaultdict(list)
-                for item in predictions:
-                    for column in columns:
-                        data_by_column[column].append(item.get(column, ""))
-                data_df = pd.DataFrame(data_by_column)
-                return data_df
+                def to_df(predictions):
+                    columns = predictions[0].keys()
+                    data_by_column = defaultdict(list)
+                    for item in predictions:
+                        for column in columns:
+                            data_by_column[column].append(item.get(column, ""))
+                    data_df = pd.DataFrame(data_by_column)
+                    return data_df
 
-            predictions_as_df = to_df(predictions)
-            predictions_table_at_epoch = wandb.Table(data=predictions_as_df)
-            self._wandb_run.log({
-                f"{split_name}_predictions_at_epoch_{epoch}": predictions_table_at_epoch})
+                predictions_as_df = to_df(predictions)
+                predictions_table_at_epoch = wandb.Table(data=predictions_as_df)
+                self._wandb_run.log({
+                    f"{split_name}_predictions_at_epoch_{epoch}": predictions_table_at_epoch})
 
     def log_metrics(self, epoch: int,
                     split_name: str,
                     metrics_dict: Dict[str, float]):
-        # for each split, one file
-        metric_file_per_split = os.path.join(
-            self._run_path, f"{split_name}_split_metrics.jsonl")
-        metrics_dict_ = {
-            "epoch": epoch,
-            "metrics": metrics_dict
-        }
-        with jsonlines.open(metric_file_per_split, "a") as writer:
-            writer.write(metrics_dict_)
+        if self._is_main_process:
+            # for each split, one file
+            metric_file_per_split = os.path.join(
+                self._run_path, f"{split_name}_split_metrics.jsonl")
+            metrics_dict_ = {
+                "epoch": epoch,
+                "metrics": metrics_dict
+            }
+            with jsonlines.open(metric_file_per_split, "a") as writer:
+                writer.write(metrics_dict_)
 
-        # log to wandb
-        if self._wandb_log:
-            metric_dict_ = {
-                f"{split_name}/{metric_key}": value for metric_key, value in metrics_dict.items()}
-            metric_dict_["epoch"] = epoch
-            wandb.log(metric_dict_)
+            # log to wandb
+            if self._wandb_log:
+                metric_dict_ = {
+                    f"{split_name}/{metric_key}": value for metric_key, value in metrics_dict.items()}
+                metric_dict_["epoch"] = epoch
+                wandb.log(metric_dict_)
 
-        # logger
-        logging.info(f"{split_name} metrics: {metrics_dict_}")
+            # logger
+            logging.info(f"{split_name} metrics: {metrics_dict_}")
 
     def log_rollout_infos(self, rollout_info: Dict[str, float]):
-        logging.info(f"Rollout Info: {rollout_info}")
-        rollout_info_file = os.path.join(
-            self._run_path, "rollout_info.jsonl")
-        with jsonlines.open(rollout_info_file, mode="a") as writer:
-            writer.write(rollout_info)
+        if self._is_main_process:
+            logging.info(f"Rollout Info: {rollout_info}")
+            rollout_info_file = os.path.join(
+                self._run_path, "rollout_info.jsonl")
+            with jsonlines.open(rollout_info_file, mode="a") as writer:
+                writer.write(rollout_info)
 
-        # log to wandb
-        if self._wandb_log:
-            wandb.log(rollout_info)
+            # log to wandb
+            if self._wandb_log:
+                wandb.log(rollout_info)
 
     def log_training_infos(self, training_info: Dict[str, float]):
-        logging.info(f"Training Info: {training_info}")
-        training_info_file = os.path.join(
-            self._run_path, "training_info.jsonl")
-        with jsonlines.open(training_info_file, mode="a") as writer:
-            writer.write(training_info)
+        if self._is_main_process:
+            logging.info(f"Training Info: {training_info}")
+            training_info_file = os.path.join(
+                self._run_path, "training_info.jsonl")
+            with jsonlines.open(training_info_file, mode="a") as writer:
+                writer.write(training_info)
 
-        # log to wandb
-        if self._wandb_log:
-            wandb.log(training_info)
+            # log to wandb
+            if self._wandb_log:
+                wandb.log(training_info)
 
     def done(self):
         if self._wandb_log:
@@ -159,7 +163,8 @@ class Tracker:
         return os.path.join(self._run_path, "checkpoints")
 
     def log_info(self, msg: str):
-        logging.info(msg)
+        if self._is_main_process:
+            logging.info(msg)
 
 
 if __name__ == "__main__":

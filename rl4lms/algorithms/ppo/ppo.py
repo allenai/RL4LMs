@@ -184,13 +184,10 @@ class PPO(OnPolicyAlgorithm):
         Update policy using the currently gathered rollout buffer.
         """
 
-        # probably wait for every other process
-        self.accelerator.wait_for_everyone()
-
         # Switch to train mode (this affects batch norm / dropout)
         # self.policy.set_training_mode(True)
         # Update optimizer learning rate
-        #self._update_learning_rate(self.policy.optimizer)
+        self._update_learning_rate(self.optimizer)
         
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
@@ -282,7 +279,7 @@ class PPO(OnPolicyAlgorithm):
                     log_ratio = log_prob - rollout_data.old_log_prob
                     approx_kl_div = th.mean(
                         (th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
-                    approx_kl_divs.append(approx_kl_div)
+                    approx_kl_divs.append(approx_kl_div.item())
 
                 if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl:
                     continue_training = False
@@ -290,17 +287,18 @@ class PPO(OnPolicyAlgorithm):
                         print(
                             f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
                     break
-
-                # Optimization step
-                self.optimizer.zero_grad()
-                #loss.backward()
                 
+                # loss backward
+                #loss.backward()
                 self.accelerator.backward(loss)
                 
                 # Clip grad norm
-                th.nn.utils.clip_grad_norm_(
+                self.accelerator.clip_grad_norm_(
                     self.policy.parameters(), self.max_grad_norm)
+
+                # Optimization step
                 self.optimizer.step()
+                self.optimizer.zero_grad()
 
             if not continue_training:
                 break
@@ -309,34 +307,23 @@ class PPO(OnPolicyAlgorithm):
         explained_var = explained_variance(
             self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
 
-        # TBD - gather training stats
-
-        # Logs
-        self.logger.record("train/entropy_loss", np.mean(entropy_losses))
-        self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
-        self.logger.record("train/value_loss", np.mean(value_losses))
-        self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
-        self.logger.record("train/clip_fraction", np.mean(clip_fractions))
-        self.logger.record("train/loss", loss.item())
-        self.logger.record("train/explained_variance", explained_var)
-        if hasattr(self.policy, "log_std"):
-            self.logger.record(
-                "train/std", th.exp(self.policy.log_std).mean().item())
-
-        self.logger.record("train/n_updates",
-                           self._n_updates, exclude="tensorboard")
-        self.logger.record("train/clip_range", clip_range)
-        if self.clip_range_vf is not None:
-            self.logger.record("train/clip_range_vf", clip_range_vf)
-
-        train_info = {
-            "ppo/entropy_loss":  np.mean(entropy_losses).item(),
-            "ppo/policy_gradient_loss": np.mean(pg_losses).item(),
-            "ppo/value_loss": np.mean(value_losses).item(),
-            "ppo/approx_kl": np.mean(approx_kl_divs).item(),
+        # gather training stats
+        training_info = {
+            "train/entropy_loss": th.mean(th.tensor(entropy_losses)).to(self.accelerator.device),
+            "train/policy_gradient_loss": th.mean(th.tensor(pg_losses)).to(self.accelerator.device),
+            "train/value_loss": th.mean(th.tensor(value_losses)).to(self.accelerator.device),
+            "train/approx_kl": th.mean(th.tensor(approx_kl_divs)).to(self.accelerator.device),
+            "train/clip_fraction": th.mean(th.tensor(clip_fractions)).to(self.accelerator.device),
+            "train/loss": loss.to(self.accelerator.device),
+            "train/explained_variance": th.tensor(explained_var).to(self.accelerator.device)
         }
 
-        self._tracker.log_training_infos(train_info)
+        self.accelerator.wait_for_everyone()
+        aggregated_training_info = self.accelerator.gather(training_info)
+        aggregated_training_info = {key: th.mean(value).item() for key,  value in aggregated_training_info.items()}
+
+        # log training infos
+        self._tracker.log_training_infos(aggregated_training_info)
 
     def learn(
         self,
