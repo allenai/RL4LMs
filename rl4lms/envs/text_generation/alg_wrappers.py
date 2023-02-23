@@ -106,7 +106,10 @@ def wrap_onpolicy_alg(
             accelerator: Accelerator,
             target_kl: float = None,
             norm_reward: bool = False,
-        ):
+        ):  
+            # calculate effective learning rate due to distributed setup
+            #alg_kwargs["learning_rate"] = alg_kwargs["learning_rate"] * accelerator.num_processes
+
             alg_kwargs["tracker"] = tracker
             alg_kwargs["accelerator"] = accelerator
             super().__init__(**alg_kwargs)
@@ -124,6 +127,7 @@ def wrap_onpolicy_alg(
                 n_envs=1,
             )
             self.reward_fn = self.env.get_attr("reward_function", 0)[0]
+            self.total_timesteps = 0
 
         def get_policy_kwargs(
             self,
@@ -310,6 +314,7 @@ def wrap_onpolicy_alg(
                 total_reward = 0.0
                 total_kl_reward = 0.0
                 for transition_ix, transition in enumerate(transitions):
+                    self.total_timesteps += 1
                     total_reward += transition.task_reward
                     total_kl_reward += transition.kl_reward
                     rollout_info["rollout_info/kl_div_mean"].append(transition.kl_div)
@@ -404,6 +409,7 @@ def wrap_onpolicy_alg(
             aggregated_rollout_info[
                 "rollout_info/kl_coeff"
             ] = torch.tensor(self._kl_controller.kl_coeff).to(self.accelerator.device)
+            aggregated_rollout_info["rollout_info/n_steps"] = torch.tensor(self.total_timesteps).to(self.accelerator.device)
 
 
             # gather rollout stats
@@ -421,7 +427,8 @@ def wrap_onpolicy_alg(
             return True
 
         def _reduce_rollout_infos(self, rollout_infos: Dict[str, torch.tensor]):
-            reduced = {key: torch.mean(values).item() for key, values in rollout_infos.items()}
+            reduced = {key: torch.mean(values).item() if key!= "rollout_info/n_steps" else torch.sum(values).item()
+                        for key, values in rollout_infos.items()}
             return reduced
 
 

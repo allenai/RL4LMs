@@ -74,6 +74,12 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         self._value_model = AutoModelForCausalLM.from_pretrained(model_name)
         self._ref_model = deepcopy(self._policy_model).eval()
 
+        # we need to mark these as not requiring gradients
+        # because DDP won't sync otherwise since these are not
+        # part of forward pass of the model 
+        for param in self._ref_model.parameters():
+            param.requires_grad = False
+
         self._value_head = nn.Linear(
             self._value_model.config.hidden_size, 1, bias=False
         )
@@ -164,7 +170,7 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         output = self._value_model(output_hidden_states=True, **model_inputs)
 
         # pool the hidden states ?
-        last_tokens_hidden = output.hidden_states[-1][:, -1, :].to(self.device)
+        last_tokens_hidden = output.hidden_states[-1][:, -1, :]
         values = self._value_head.forward(last_tokens_hidden)
 
         # update the model kwargs for further generation
@@ -230,14 +236,6 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
 
         ref_policy_outputs = RefPolicyOutput(log_prob, past_model_kwargs)
         return ref_policy_outputs
-
-    def get_policy_first_device(self):
-        return (
-            self._policy_model.transformer.first_device
-            if self._apply_model_parallel
-            and unwrap_model(self._policy_model).is_parallelizable
-            else "cuda"
-        )
 
     def get_inputs_for_generation(self, obs: TensorDict):
         gen_inputs = GenerationInputs(

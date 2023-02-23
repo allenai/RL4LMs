@@ -212,7 +212,7 @@ class IMDB(TextGenPool):
     """
     @classmethod
     def prepare(cls, split: str):
-        dataset = load_dataset("imdb")
+        dataset = load_dataset("imdb", ignore_verifications=True)
         if split in ["train", "val"]:
             dataset_split = dataset["train"].shuffle()
             train_ratio = 0.8
@@ -229,7 +229,7 @@ class IMDB(TextGenPool):
             prompt_text = text.split(" ")
             prompt_text = " ".join(prompt_text[:int(len(prompt_text) * 0.5)])
 
-            sample = Sample(id=f"{split}_{ix}",
+            sample = Sample(id=ix,
                             prompt_or_input_text=prompt_text,
                             references=[text]
                             )

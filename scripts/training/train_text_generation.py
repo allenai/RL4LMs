@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import yaml
 
-from accelerate import Accelerator
+from accelerate import Accelerator, DistributedDataParallelKwargs
 
 from rl4lms.envs.text_generation.logging_utils import Tracker
 from rl4lms.envs.text_generation.training_utils import (
@@ -28,6 +28,9 @@ def main(
     # init accelerator
     accelerator = Accelerator()
 
+    # append some accelerate info
+    config["accelerator/num_processes"] = accelerator.num_processes
+
     # load tracker
     tracker = Tracker(
         base_path_to_store_results,
@@ -36,7 +39,7 @@ def main(
         experiment_name,
         entity_name,
         log_to_wandb,
-        accelerator.is_main_process,
+        is_main_process=accelerator.is_main_process,
     )
 
     # instantiate the trainer here

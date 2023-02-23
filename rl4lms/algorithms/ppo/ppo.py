@@ -183,7 +183,6 @@ class PPO(OnPolicyAlgorithm):
         """
         Update policy using the currently gathered rollout buffer.
         """
-
         # Switch to train mode (this affects batch norm / dropout)
         # self.policy.set_training_mode(True)
         # Update optimizer learning rate
@@ -217,8 +216,7 @@ class PPO(OnPolicyAlgorithm):
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
 
-                evaluation_output: EvaluateActionsOutput = self.accelerator.unwrap_model(self.policy).evaluate_actions(
-                    rollout_data.observations, actions)
+                evaluation_output: EvaluateActionsOutput = self.policy(rollout_data.observations, actions)
                 values, log_prob, entropy = evaluation_output.values, evaluation_output.log_prob, evaluation_output.entropy
                 values = values.flatten()
                 # Normalize advantage
@@ -287,9 +285,11 @@ class PPO(OnPolicyAlgorithm):
                         print(
                             f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
                     break
+
+                # reset grad
+                self.optimizer.zero_grad()
                 
                 # loss backward
-                #loss.backward()
                 self.accelerator.backward(loss)
                 
                 # Clip grad norm
@@ -298,7 +298,6 @@ class PPO(OnPolicyAlgorithm):
 
                 # Optimization step
                 self.optimizer.step()
-                self.optimizer.zero_grad()
 
             if not continue_training:
                 break

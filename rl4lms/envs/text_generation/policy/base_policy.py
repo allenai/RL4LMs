@@ -167,7 +167,8 @@ class LMActorCriticPolicy(BasePolicy):
 
     def forward(self, *args, **kwargs):
         # dummy just to comply with base policy
-        pass
+        return self.evaluate_actions(*args, **kwargs)
+
 
     @staticmethod
     def _predict(
@@ -357,13 +358,6 @@ class LMActorCriticPolicy(BasePolicy):
             obs (TensorDict): observation
             past_model_kwargs (Optional[Dict[str, torch.tensor]], optional): Any cached past model activations which can be used for sequential foward passes.
             Defaults to None.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_policy_first_device(self) -> torch.device:
-        """
-        Returns the first device of the policy. Used in the case of model parallel
         """
         raise NotImplementedError
 
