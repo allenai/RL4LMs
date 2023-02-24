@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import yaml
 
-from accelerate import Accelerator, DistributedDataParallelKwargs
+from accelerate import Accelerator
 
 from rl4lms.envs.text_generation.logging_utils import Tracker
 from rl4lms.envs.text_generation.training_utils import (

@@ -24,6 +24,16 @@ from rl4lms.envs.text_generation.reward import BatchedRewardFunction, RewardFunc
 from rl4lms.envs.text_generation.warm_start import OnPolicyWarmStartMixin
 
 
+def fsdp_prepare(policy, env, device):
+    """
+    Prepare models for distributed setup
+    especially for FSDP related issues
+    https://github.com/huggingface/accelerate/issues/947#event-8448457764
+    """
+    obs = env.reset()
+    obs_tensor = obs_as_tensor(obs, device)
+    outputs = policy(obs_tensor, actions=None)
+
 @dataclass
 class TransitionInfo:
     observation: TensorDict
@@ -371,6 +381,10 @@ def wrap_onpolicy_alg(
             rollout_buffer: RolloutBuffer,
             n_rollout_steps: int,
         ) -> bool:
+            
+            # dist setup again
+            fsdp_prepare(self.policy, self.env, self.accelerator.device)
+
             # max episode steps
             max_steps = env.unwrapped.get_attr("max_steps", [0])[0]
 

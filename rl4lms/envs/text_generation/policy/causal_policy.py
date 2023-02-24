@@ -99,7 +99,7 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
     def forward_policy(
         self,
         obs: TensorDict,
-        actions: torch.tensor,
+        actions: torch.tensor = None,
         past_model_kwargs: Optional[Dict[str, torch.tensor]] = None,
     ) -> PolicyOutput:
         input_ids = obs["input_encoded_pt"].int()
@@ -119,13 +119,17 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         # forward pass to transformers
         output = self._policy_model(output_hidden_states=True, **model_inputs)
 
-        # compute action probs - policy head
-        next_token_logits = output.logits[:, -1, :]
-        dist = self._action_dist.proba_distribution(action_logits=next_token_logits)
-        entropy = dist.entropy()
+        if actions is not None:
+            # compute action probs - policy head
+            next_token_logits = output.logits[:, -1, :]
+            dist = self._action_dist.proba_distribution(action_logits=next_token_logits)
+            entropy = dist.entropy()
 
-        # sample act
-        log_prob = dist.log_prob(actions)
+            # sample act
+            log_prob = dist.log_prob(actions)
+        else:
+            log_prob = None
+            entropy = None
 
         # update the model kwargs for further generation
         past_model_kwargs = unwrap_model(
@@ -466,7 +470,9 @@ class MaskedCausalLMActorCriticPolicy(
         input_ids: torch.tensor = None,
         attention_mask: torch.tensor = None,
         gen_kwargs: Dict[str, Any] = None,
-    ):
+    ):  
+
+
 
         # if it different from rollout gen kwargs
         if gen_kwargs is None:

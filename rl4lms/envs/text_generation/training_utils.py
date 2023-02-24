@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Any, Dict, List
 import numpy as np
+import torch
 
 from rl4lms.data_pools.text_generation_pool import Sample
 from rl4lms.envs.text_generation.env import TextGenEnv
@@ -21,6 +22,7 @@ from rl4lms.envs.text_generation.registry import (
 from rl4lms.envs.text_generation.reward import RewardFunction
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
+from stable_baselines3.common.utils import obs_as_tensor
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -40,6 +42,17 @@ from rl4lms.envs.text_generation.utils_supervised import (
     EvalCallack,
 )
 from rl4lms.envs.text_generation.warm_start import TrainerWarmStartMixin
+
+
+def fsdp_prepare(policy, env, device):
+    """
+    Prepare models for distributed setup
+    especially for FSDP related issues
+    https://github.com/huggingface/accelerate/issues/947#event-8448457764
+    """
+    obs = env.reset()
+    obs_tensor = obs_as_tensor(obs, device)
+    outputs = policy(obs_tensor, actions=None)
 
 
 def build_tokenizer(tokenizer_config: Dict[str, Any]):
@@ -228,6 +241,9 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
                                      optimizer, 
                                      self._dataloaders["val"], 
                                      self._dataloaders["test"])
+        
+        fsdp_prepare(self._alg.policy, self._env, self._accelerator.device)
+
 
     def _evaluate_on_datapools(self, epoch: int, splits: List[str] = ["val", "test"]):
         for split in splits:
