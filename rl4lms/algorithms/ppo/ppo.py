@@ -321,6 +321,7 @@ class PPO(OnPolicyAlgorithm):
             "ppo/policy_gradient_loss": np.mean(pg_losses).item(),
             "ppo/value_loss": np.mean(value_losses).item(),
             "ppo/approx_kl": np.mean(approx_kl_divs).item(),
+            "ppo/explained_variance": explained_var
         }
 
         self._tracker.log_training_infos(train_info)
