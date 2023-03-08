@@ -10,6 +10,7 @@ from torch import nn
 from torch.distributions import Categorical
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.modeling_utils import unwrap_model
+from accelerate.utils.dataclasses import DistributedType
 
 from rl4lms.algorithms.common.maskable.distributions import (
     MaskableCategoricalDistribution,
@@ -40,6 +41,7 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         observation_space: DictSpace,
         action_space: Discrete,
         lr_schedule: Schedule,
+        dist_type: DistributedType,
         model_name: str,
         optimizer_kwargs: Dict[str, Any] = {},
         weight_decay: float = 1e-6,
@@ -54,6 +56,7 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
             observation_space,
             action_space,
             lr_schedule,
+            dist_type,
             model_name,
             optimizer_kwargs,
             weight_decay,
@@ -67,9 +70,9 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
 
     def _build_model_heads(self, model_name: str):
         self._policy_model = AutoModelForCausalLM.from_pretrained(model_name)
-        self._policy_model.__class__ = override_generation_routines(
-            type(self._policy_model)
-        )
+        # self._policy_model.__class__ = override_generation_routines(
+        #     type(self._policy_model)
+        # )
 
         self._value_model = AutoModelForCausalLM.from_pretrained(model_name)
         self._ref_model = deepcopy(self._policy_model).eval()
@@ -77,8 +80,9 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         # we need to mark these as not requiring gradients
         # because DDP won't sync otherwise since these are not
         # part of forward pass of the model 
-        for param in self._ref_model.parameters():
-            param.requires_grad = False
+        if self._dist_type == DistributedType.MULTI_GPU:
+            for param in self._ref_model.parameters():
+                param.requires_grad = False
 
         self._value_head = nn.Linear(
             self._value_model.config.hidden_size, 1, bias=False

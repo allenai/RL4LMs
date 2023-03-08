@@ -30,9 +30,10 @@ def fsdp_prepare(policy, env, device):
     especially for FSDP related issues
     https://github.com/huggingface/accelerate/issues/947#event-8448457764
     """
-    obs = env.reset()
-    obs_tensor = obs_as_tensor(obs, device)
-    outputs = policy(obs_tensor, actions=None)
+    with torch.no_grad():
+        obs = env.reset()
+        obs_tensor = obs_as_tensor(obs, device)
+        outputs = policy(obs_tensor, actions=None)
 
 @dataclass
 class TransitionInfo:

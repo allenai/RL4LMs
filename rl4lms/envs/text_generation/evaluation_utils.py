@@ -25,18 +25,26 @@ def evaluate_on_samples(
     dt_control_token: str = "",
     gen_kwargs: Dict[str, Any] = None,
 ):  
+
+    # tracker
+    tracker.log_info("DISTRIBUTED EVALUATION STARTED")
+
+
     # wait for everyone
     accelerator.wait_for_everyone()
 
     # generate text by batch
     generations_by_sample_ids = {}
-    for batch in dataloader:
+    for batch in tqdm(dataloader, desc="DIST EVALUATION", disable=not accelerator.is_local_main_process):
         batch_sample_ids, batch_generated_texts = generate_text(
             policy, tokenizer, batch, accelerator, max_prompt_length, dt_control_token, gen_kwargs
         )
 
         for sample_id, gen_text in zip(batch_sample_ids, batch_generated_texts):
             generations_by_sample_ids[sample_id] = gen_text
+
+    # tracker
+    tracker.log_info("DISTRIBUTED EVALUATION FINISHED")
 
     if accelerator.is_main_process:
         # compute metrics

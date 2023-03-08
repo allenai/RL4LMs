@@ -50,9 +50,10 @@ def fsdp_prepare(policy, env, device):
     especially for FSDP related issues
     https://github.com/huggingface/accelerate/issues/947#event-8448457764
     """
-    obs = env.reset()
-    obs_tensor = obs_as_tensor(obs, device)
-    outputs = policy(obs_tensor, actions=None)
+    with torch.no_grad():
+        obs = env.reset()
+        obs_tensor = obs_as_tensor(obs, device)
+        outputs = policy(obs_tensor, actions=None)
 
 
 def build_tokenizer(tokenizer_config: Dict[str, Any]):
@@ -136,6 +137,7 @@ def build_alg(
 
     policy_args = policy_config["args"]
     policy_args["state_dict"] = policy_state
+    policy_args["dist_type"] = accelerator.distributed_type
     alg_kwargs = {
         "policy": policy_cls,
         "env": env,
@@ -241,11 +243,14 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
                                      optimizer, 
                                      self._dataloaders["val"], 
                                      self._dataloaders["test"])
-        
-        fsdp_prepare(self._alg.policy, self._env, self._accelerator.device)
+
+
 
 
     def _evaluate_on_datapools(self, epoch: int, splits: List[str] = ["val", "test"]):
+        # need to do this for FSDP
+        fsdp_prepare(self._alg.policy, self._env, self._accelerator.device)
+
         for split in splits:
             evaluate_on_samples(
                 policy=self._alg.policy,

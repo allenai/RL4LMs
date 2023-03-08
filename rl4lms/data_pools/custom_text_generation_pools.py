@@ -131,7 +131,7 @@ class CommonGen(TextGenPool):
                 # just to avoid breaking of metric computation
                 item["target"] = "empty reference"
             targets = [item["target"]]
-            sample = Sample(id=f"{split}_{ix}",
+            sample = Sample(id=ix,
                             prompt_or_input_text=concepts,
                             references=targets,
                             meta_data={

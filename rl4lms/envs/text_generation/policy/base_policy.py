@@ -14,7 +14,7 @@ from stable_baselines3.common.type_aliases import Schedule, TensorDict
 from torch.distributions import Categorical
 from transformers import AutoTokenizer, PreTrainedModel
 from transformers.modeling_utils import unwrap_model
-
+from accelerate.utils.dataclasses import DistributedType
 
 class PolicyType(Enum):
     CAUSAL = 0
@@ -108,6 +108,7 @@ class LMActorCriticPolicy(BasePolicy):
         observation_space: DictSpace,
         action_space: Discrete,
         lr_schedule: Schedule,
+        dist_type: DistributedType,
         model_name: str,
         optimizer_kwargs: Dict[str, Any] = {},
         weight_decay: float = 1e-6,
@@ -123,6 +124,7 @@ class LMActorCriticPolicy(BasePolicy):
             observation_space (DictSpace): Observation space
             action_space (Discrete): Action space
             lr_schedule (Schedule): Learning rate schedule
+            dist_type (DistributedType): type of distributed environment (no/multi_cpu/multi_gpu/deepspeed/fsdp)
             model_name (str): name of the causal or seq2seq model from transformers library
             optimizer_kwargs (Dict[str, Any], optional): optimizer kwargs. Defaults to {}.
             weight_decay (float, optional): weight decay. Defaults to 1e-6.
@@ -135,6 +137,7 @@ class LMActorCriticPolicy(BasePolicy):
         super().__init__(observation_space, action_space)
         self._action_space = action_space
         self._apply_model_parallel = apply_model_parallel
+        self._dist_type = dist_type
         self._build_model_heads(model_name)
         self._optimizer_class = optimizer_class
         self._weight_decay = weight_decay
@@ -179,7 +182,7 @@ class LMActorCriticPolicy(BasePolicy):
 
     def is_encoder_decoder(self, model: PreTrainedModel):
         return unwrap_model(model).config.is_encoder_decoder
-
+    
     def generate(
         self,
         tokenizer: AutoTokenizer,
@@ -242,35 +245,43 @@ class LMActorCriticPolicy(BasePolicy):
             **generation_kwargs_,
         )
 
-
-        if gather_from_devices:
-            # gather ids from all devices
-            gathered_sample_ids = accelerator.gather_for_metrics(sample_ids).tolist()
-            gen_output = accelerator.gather_for_metrics(gen_output)
-        else:
-            gathered_sample_ids = None
-
         # number of tokens generated
         seq_length = len(gen_output["scores"])
 
         # get only the generated text (excluding prompt)
         gen_tokens = gen_output["sequences"][:, -seq_length:]
 
-        # to texts
-        gen_texts = [
-            tokenizer.decode(output, skip_special_tokens=True)
-            for output in gen_tokens.tolist()
-        ]
+        if gather_from_devices:
+            # now we got to pad the gen_tokens to maximum sequence length
+            max_length = generation_kwargs_["max_new_tokens"]  # TBD: fix this
+            padded_gen_tokens = torch.ones((gen_tokens.shape[0], max_length), dtype=torch.int32).to(accelerator.device) * tokenizer.eos_token_id
+            padded_gen_tokens[:,:seq_length] = gen_tokens
+            gathered_gen_tokens = accelerator.gather_for_metrics(padded_gen_tokens)
+
+            gathered_gen_texts = []
+            for output in gathered_gen_tokens.tolist():
+                text = tokenizer.decode(output, skip_special_tokens=True)
+                gathered_gen_texts.append(text)
+
+            gathered_sample_ids = accelerator.gather_for_metrics(sample_ids).tolist()
+            assert len(gathered_gen_texts) == len(gathered_sample_ids)
+
+            generation_outputs = GenerationOutputs(None, None, None, gathered_gen_texts, None, gathered_sample_ids)
+            return generation_outputs 
+        else:
+            gathered_sample_ids = None
+
+        gen_texts = []
+        for output in gen_tokens.tolist():
+            text = tokenizer.decode(output, skip_special_tokens=True)
+            gen_texts.append(text)
 
         # extract scores (logits)
         step_wise_logprobs = []
         step_wise_actions = []
         for step, logits in enumerate(gen_output["scores"]):
-            raw_logits, _ = logits
             actions_at_step = gen_tokens[:, step]
-            distribution = Categorical(logits=raw_logits)
-            log_probs = distribution.log_prob(actions_at_step)
-            step_wise_logprobs.append(log_probs)
+            step_wise_logprobs.append(None)
             step_wise_actions.append(actions_at_step)
 
         gen_output = GenerationOutputs(
