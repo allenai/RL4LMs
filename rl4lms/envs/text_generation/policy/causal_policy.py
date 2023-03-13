@@ -18,7 +18,7 @@ from rl4lms.algorithms.common.maskable.distributions import (
 from rl4lms.algorithms.common.maskable.logits_processor import (
     MaskLogitsProcessorCasualLM,
 )
-from rl4lms.envs.text_generation.hf_generation_utils import override_generation_routines
+#from rl4lms.envs.text_generation.hf_generation_utils import override_generation_routines
 from rl4lms.envs.text_generation.policy.base_policy import (
     EvaluateActionsOutput,
     GenerationInputs,

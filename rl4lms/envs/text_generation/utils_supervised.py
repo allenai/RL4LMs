@@ -30,6 +30,9 @@ def evaluate_on_samples(model: PreTrainedModel,
                         tracker: Tracker = None,
                         generation_kwargs: Dict[str, Any] = {},
                         ):
+    
+
+
     all_prompt_texts, all_generated_texts, all_ref_texts, all_meta_infos = generate_on_samples(
         model, tokenizer, samples, batch_size, max_prompt_length, generation_kwargs)
 

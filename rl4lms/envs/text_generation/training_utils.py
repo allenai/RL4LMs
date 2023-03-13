@@ -360,7 +360,6 @@ class SupervisedTrainer:
         )
         self._gen_kwargs = self._alg_config["generation_kwargs"]
         self._model = model_cls.from_pretrained(self._alg_config["model_name"])
-        self._model.parallelize()
         self._eval_batch_size = self._train_eval_config["eval_batch_size"]
 
         # setting max prompt length
@@ -400,18 +399,18 @@ class SupervisedTrainer:
             args=self._train_args,
             data_collator=data_collator,
             train_dataset=self._tokenized_dataset,
-            callbacks=[self._eval_callback],
+            #callbacks=[self._eval_callback],
         )
 
     def train_and_eval(self):
         # evaluate on val and test set before fine-tuning once
-        self._evaluate_on_datapools(epoch=0)
+        #self._evaluate_on_datapools(epoch=0)
 
         # train using HF trainer
         self._trainer.train()
 
         # finally evaluate on val and test samples
-        self._evaluate_on_datapools(epoch=self._train_args.num_train_epochs)
+        #self._evaluate_on_datapools(epoch=self._train_args.num_train_epochs)
 
         # save model here - we save only the language model
         if self._tracker is not None:
