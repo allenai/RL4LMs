@@ -224,7 +224,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
         self._prepare_accelerate()
 
     def _prepare_accelerate(self):
-        # create optimizer first
+        self._alg.policy = self._accelerator.prepare(self._alg.policy)
         optimizer = self._alg.policy.setup_optimizer()
 
         # prepare dataloaders
@@ -235,13 +235,11 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
 
         # prepare policy, optimizer and dataloader
         (
-            self._alg.policy,
             self._alg.optimizer,
             self._dataloaders["val"],
             self._dataloaders["test"],
-        ) = self._accelerator.prepare(self._alg.policy, 
-                                     optimizer, 
-                                     self._dataloaders["val"], 
+        ) = self._accelerator.prepare(optimizer,
+                                     self._dataloaders["val"],
                                      self._dataloaders["test"])
 
 
@@ -268,7 +266,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
     def train_and_eval(self):
         # evaluate on val and test set before fine-tuning once
         iter_start = self._trainer_state["current_iter"]
-        self._evaluate_on_datapools(epoch=iter_start)
+        # self._evaluate_on_datapools(epoch=iter_start)
 
         # train for given number of iters
         for epoch in range(iter_start, self._n_iters):
@@ -292,7 +290,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
 
         # save model here - we save only the language model
         if self._tracker is not None:
-            
+
             # wait for every process
             self._accelerator.wait_for_everyone()
 
