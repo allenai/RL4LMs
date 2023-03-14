@@ -18,7 +18,7 @@ from rl4lms.algorithms.common.maskable.distributions import (
 from rl4lms.algorithms.common.maskable.logits_processor import (
     MaskLogitsProcessorCasualLM,
 )
-#from rl4lms.envs.text_generation.hf_generation_utils import override_generation_routines
+# from rl4lms.envs.text_generation.hf_generation_utils import override_generation_routines
 from rl4lms.envs.text_generation.policy.base_policy import (
     EvaluateActionsOutput,
     GenerationInputs,
@@ -33,6 +33,8 @@ from rl4lms.envs.text_generation.warm_start import (
     ActorCriticWarmStartMixin,
     MaskableActorCriticWarmStartMixin,
 )
+
+from transformers import LLaMATokenizer, LLaMAForCausalLM
 
 
 class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):

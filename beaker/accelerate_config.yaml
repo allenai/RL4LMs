@@ -1,0 +1,60 @@
+#compute_environment: LOCAL_MACHINE
+#deepspeed_config: {}
+#distributed_type: FSDP
+#downcast_bf16: 'no'
+#dynamo_config: {}
+#fsdp_config:
+#  fsdp_auto_wrap_policy: NO_WRAP
+#  fsdp_backward_prefetch_policy: NO_PREFETCH
+#  fsdp_offload_params: false
+#  fsdp_sharding_strategy: 1
+#  fsdp_state_dict_type: FULL_STATE_DICT
+#machine_rank: 0
+#main_training_function: main
+#megatron_lm_config: {}
+#mixed_precision: 'no'
+#num_machines: 1
+#num_processes: 8
+#rdzv_backend: static
+#same_network: true
+#tpu_env: []
+#tpu_use_cluster: false
+#tpu_use_sudo: false
+#use_cpu: false
+compute_environment: LOCAL_MACHINE
+deepspeed_config: {}
+distributed_type: FSDP
+downcast_bf16: 'no'
+dynamo_config: {}
+#fsdp_config:
+#  fsdp_auto_wrap_policy: SIZE_BASED_WRAP
+#  fsdp_backward_prefetch_policy: BACKWARD_PRE
+#  fsdp_min_num_params: 1000
+#  fsdp_offload_params: false
+#  fsdp_sharding_strategy: 1
+#  fsdp_state_dict_type: FULL_STATE_DICT
+#fsdp_config:
+#  fsdp_auto_wrap_policy: NO_WRAP
+#  fsdp_backward_prefetch_policy: NO_PREFETCH
+#  fsdp_offload_params: true
+#  fsdp_sharding_strategy: 1
+#  fsdp_state_dict_type: FULL_STATE_DICT
+fsdp_config:
+  fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  fsdp_backward_prefetch_policy: BACKWARD_PRE
+  fsdp_offload_params: false
+  fsdp_sharding_strategy: 1
+  fsdp_state_dict_type: FULL_STATE_DICT
+  fsdp_transformer_layer_cls_to_wrap: LLaMADecoderLayer
+machine_rank: 0
+main_training_function: main
+megatron_lm_config: {}
+mixed_precision: 'no'
+num_machines: 1
+num_processes: 8
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false
