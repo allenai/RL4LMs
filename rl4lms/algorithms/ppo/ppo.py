@@ -6,6 +6,7 @@ import torch as th
 from gym import spaces
 from torch.nn import functional as F
 from accelerate import Accelerator
+from tqdm import tqdm
 
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, MultiInputActorCriticPolicy
@@ -202,7 +203,7 @@ class PPO(OnPolicyAlgorithm):
         continue_training = True
 
         # train for n_epochs epochs
-        for epoch in range(self.n_epochs):
+        for epoch in tqdm(range(self.n_epochs), desc="PPO Train Epoch", disable=not self.accelerator.is_local_main_process):
             approx_kl_divs = []
             # Do a complete pass on the rollout buffer
             for batch_ix, rollout_data in enumerate(list(self.rollout_buffer.get(self.batch_size))):

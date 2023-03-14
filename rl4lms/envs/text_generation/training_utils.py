@@ -312,12 +312,14 @@ class SupervisedTrainer:
         train_eval_config: Dict[str, Any],
         alg_config: Dict[str, Any],
         tracker: Tracker = None,
+        accelerator: Accelerator = None
     ):
         self._tokenizer_config = tokenizer_config
         self._datapool_config = datapool_config
         self._train_eval_config = train_eval_config
         self._alg_config = alg_config
         self._tracker = tracker
+        self._accelerator = accelerator
         self._setup()
 
     def _evaluate_on_datapools(self, epoch: int, splits: List[str] = ["val", "test"]):
@@ -325,19 +327,22 @@ class SupervisedTrainer:
             evaluate_supervised(
                 model=self._model,
                 tokenizer=self._tokenizer,
-                samples=self._samples_by_split[split],
-                batch_size=self._eval_batch_size,
+                dataloader=self._dataloaders[split],
                 max_prompt_length=self._max_prompt_length,
-                metrics_config_dict=self._metrics_config_dict,
+                metrics=self._metrics,
                 epoch=epoch,
                 split_name=split,
                 tracker=self._tracker,
                 generation_kwargs=self._gen_kwargs,
+                accelerator=self._accelerator
             )
+        
+        self._accelerator.wait_for_everyone()
+        self._model = self._accelerator.unwrap_model(self._model).cpu()
 
     def _setup(self):
         self._tokenizer = build_tokenizer(self._tokenizer_config)
-        self._metrics_config_dict = self._train_eval_config.get("metrics")
+        self._metrics = build_metrics(self._train_eval_config.get("metrics", []))
         self._samples_by_split = build_datapool(self._datapool_config)
         self._train_dataset = (
             get_datasets_for_causal(self._samples_by_split["train"])
@@ -375,39 +380,59 @@ class SupervisedTrainer:
                 self._max_prompt_length - self._gen_kwargs["max_new_tokens"]
             )
 
+        # prepare dataloaders
+        self._dataloaders = {
+            "val": create_dataloader(self._samples_by_split["val"], self._eval_batch_size),
+            "test": create_dataloader(self._samples_by_split["test"], self._eval_batch_size),
+        }
+
+        # accelerate prepare
+        (
+            self._dataloaders["val"],
+            self._dataloaders["test"],
+        ) = self._accelerator.prepare(self._dataloaders["val"], 
+                                     self._dataloaders["test"])
+        
+        # also prepare model?
+        self._model = self._accelerator.prepare(self._model)
+
         self._eval_callback = EvalCallack(
-            self._samples_by_split["val"],
+            self._dataloaders["val"],
             self._gen_kwargs,
             self._eval_batch_size,
             self._tokenizer,
-            self._metrics_config_dict,
+            self._metrics,
             self._max_prompt_length,
             self._tracker,
+            self._accelerator
         )
         train_args = self._alg_config["training_args"]
         train_args["output_dir"] = self._tracker.checkpoint_base_path
         train_args["seed"] = np.random.randint(1e2)  # random seed
         self._train_args = TrainingArguments(**train_args)
-        data_collator = (
+        self._data_collator = (
             DataCollatorForLanguageModeling(self._tokenizer, mlm=False)
             if self._alg_config["model_type"] == "causal"
             else DataCollatorForSeq2Seq(self._tokenizer, self._model)
         )
+
+    def train_and_eval(self):
+        # evaluate on val and test set before fine-tuning once
+        self._evaluate_on_datapools(epoch=0)
+
         self._trainer = Trainer(
             model=self._model,
             tokenizer=self._tokenizer,
             args=self._train_args,
-            data_collator=data_collator,
+            data_collator=self._data_collator,
             train_dataset=self._tokenized_dataset,
-            #callbacks=[self._eval_callback],
+            callbacks=[self._eval_callback],
         )
-
-    def train_and_eval(self):
-        # evaluate on val and test set before fine-tuning once
-        #self._evaluate_on_datapools(epoch=0)
 
         # train using HF trainer
         self._trainer.train()
+
+
 
         # finally evaluate on val and test samples
         #self._evaluate_on_datapools(epoch=self._train_args.num_train_epochs)
