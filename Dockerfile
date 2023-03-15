@@ -27,7 +27,7 @@ COPY requirements.txt ./
 COPY accelerate_config.yaml ./
 COPY rl4lms/ ./rl4lms
 COPY scripts/ ./scripts
-COPY llama/ ./llama
+COPY beaker/llama/ ./llama
 # other model downloads
 WORKDIR /stage/rl4lms/envs/text_generation/caption_metrics/spice
 RUN ./get_stanford_models.sh
@@ -36,8 +36,10 @@ WORKDIR /stage/
 # finally install the package (with dependencies)
 RUN pip install -e .
 
-COPY transformers ./transformers
+RUN git clone https://github.com/zphang/transformers.git
 WORKDIR /stage/transformers
+RUN git checkout llama_push
+COPY beaker/llama /stage/transformers/src/transformers/models/
 RUN pip install .
 
 WORKDIR /stage/
