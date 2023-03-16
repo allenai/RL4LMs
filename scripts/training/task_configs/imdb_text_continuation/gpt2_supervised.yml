@@ -14,14 +14,14 @@ alg:
   id: supervised
   training_args:
     per_device_train_batch_size: 8
-    logging_steps: 200
-    num_train_epochs: 10
+    logging_steps: 2000
+    num_train_epochs: 1
     lr_scheduler_type: "constant"
     learning_rate: 0.00001
     save_total_limit: 1
     fsdp: "full_shard"
   model_type: causal
-  model_name: EleutherAI/gpt-neo-1.3B
+  model_name: lvwerra/gpt2-imdb
   generation_kwargs:
     do_sample: True
     min_length: 48
@@ -29,19 +29,19 @@ alg:
     post_processing_fn: null
 
 train_evaluation:
-  eval_batch_size: 256
+  eval_batch_size: 8
   metrics:
     - id: learned_reward
       args: 
         model_name: lvwerra/distilbert-imdb
         label_ix: 1
         batch_size: 100
-    - id: causal_perplexity
-      args:
-        tokenizer_id: gpt2
-        stride: 512
-        model_type: causal
-        use_text_from_meta_data: True
+    # - id: causal_perplexity
+    #   args:
+    #     tokenizer_id: gpt2
+    #     stride: 512
+    #     model_type: causal
+    #     use_text_from_meta_data: True
     - id: diversity
       args: {}
 

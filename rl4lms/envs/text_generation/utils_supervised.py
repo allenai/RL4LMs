@@ -171,8 +171,11 @@ class EvalCallack(TrainerCallback):
         self._accelerator = accelerator
 
     def on_log(self, args, state, control, logs=None, **kwargs):
+        print("Evaluation")
         model = kwargs.pop("model")
-        model = self._accelerator.prepare(model)
+        #model = self._accelerator.prepare(model)
+        batch = self._tokenizer(["random text"], return_tensors="pt").to(self._accelerator.device)
+        outputs = model(**batch)
         evaluate_on_samples(model,
                             self._tokenizer,
                             self._val_dataloader,

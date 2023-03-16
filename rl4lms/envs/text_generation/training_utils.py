@@ -321,6 +321,11 @@ class SupervisedTrainer:
         self._setup()
 
     def _evaluate_on_datapools(self, epoch: int, splits: List[str] = ["val", "test"]):
+        # also prepare model?
+        self._model = self._accelerator.prepare(self._model)
+        batch = self._tokenizer(["random text"], return_tensors="pt").to(self._accelerator.device)
+        outputs = self._model(**batch)
+
         for split in splits:
             evaluate_supervised(
                 model=self._model,
@@ -335,8 +340,8 @@ class SupervisedTrainer:
                 accelerator=self._accelerator
             )
         
+        # wait for everyone
         self._accelerator.wait_for_everyone()
-        self._model = self._accelerator.unwrap_model(self._model).cpu()
 
     def _setup(self):
         self._tokenizer = build_tokenizer(self._tokenizer_config)
@@ -356,13 +361,13 @@ class SupervisedTrainer:
         self._tokenized_dataset = self._train_dataset.map(
             preprocess_fn, batched=True, remove_columns=self._train_dataset.column_names
         )
-        model_cls = (
+        self._model_cls = (
             AutoModelForCausalLM
             if self._alg_config["model_type"] == "causal"
             else AutoModelForSeq2SeqLM
         )
         self._gen_kwargs = self._alg_config["generation_kwargs"]
-        self._model = model_cls.from_pretrained(self._alg_config["model_name"])
+        self._model = self._model_cls.from_pretrained(self._alg_config["model_name"])
         self._eval_batch_size = self._train_eval_config["eval_batch_size"]
 
         # setting max prompt length
@@ -390,9 +395,6 @@ class SupervisedTrainer:
             self._dataloaders["test"],
         ) = self._accelerator.prepare(self._dataloaders["val"], 
                                      self._dataloaders["test"])
-        
-        # also prepare model?
-        self._model = self._accelerator.prepare(self._model)
 
         self._eval_callback = EvalCallack(
             self._dataloaders["val"],
@@ -415,8 +417,11 @@ class SupervisedTrainer:
         )
 
     def train_and_eval(self):
-        # evaluate on val and test set before fine-tuning once
+        # # evaluate on val and test set before fine-tuning once
         self._evaluate_on_datapools(epoch=0)
+
+        # might have to reload the model again since trainer does not like the wrapped model
+        self._model = self._model_cls.from_pretrained(self._alg_config["model_name"])
 
         self._trainer = Trainer(
             model=self._model,
@@ -430,11 +435,12 @@ class SupervisedTrainer:
         # train using HF trainer
         self._trainer.train()
 
-
+        self._tracker.log_info("TRAINING FINISHED")
 
         # finally evaluate on val and test samples
-        #self._evaluate_on_datapools(epoch=self._train_args.num_train_epochs)
+        self._evaluate_on_datapools(epoch=self._train_args.num_train_epochs)
 
         # save model here - we save only the language model
         if self._tracker is not None:
-            self._tracker.save_auto_model(self._model)
+            self._accelerator.wait_for_everyone()
+            self._tracker.save_auto_model(self._accelerator.unwrap_model(self._model))
