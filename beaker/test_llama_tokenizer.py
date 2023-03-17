@@ -2,7 +2,7 @@ from transformers import LLaMATokenizer
 import numpy
 import torch
 
-tokenizer = LLaMATokenizer.from_pretrained('../llama/')
+tokenizer = LLaMATokenizer.from_pretrained('/net/nfs.cirrascale/mosaic/raja/llama/tokenizer')
 print(tokenizer.eos_token_id, tokenizer.bos_token_id)
 print(tokenizer.sp_model.get_piece_size())
 tokenizer.pad_token_id = tokenizer.eos_token_id

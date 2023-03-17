@@ -6,6 +6,8 @@ from transformers import AutoTokenizer
 from rl4lms.data_pools.text_generation_pool import Sample
 from copy import deepcopy
 
+import numpy as np
+
 
 @dataclass
 class Observation:
@@ -76,6 +78,8 @@ class Observation:
 
         # update the action history
         current_action_history = deepcopy(self.action_history)
+        if isinstance(action, np.int64):
+            action = action.item()
         current_action_history.append(tokenizer._convert_id_to_token(action))
 
         # get the current context

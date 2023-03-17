@@ -62,6 +62,7 @@ def build_tokenizer(tokenizer_config: Dict[str, Any]):
         "pad_token_as_eos_token", True
     ):
         tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = tokenizer_config.get("padding_side", "left")
     tokenizer.truncation_side = tokenizer_config.get("truncation_side", "left")
     return tokenizer
@@ -266,7 +267,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
     def train_and_eval(self):
         # evaluate on val and test set before fine-tuning once
         iter_start = self._trainer_state["current_iter"]
-        # self._evaluate_on_datapools(epoch=iter_start)
+        self._evaluate_on_datapools(epoch=iter_start)
 
         # train for given number of iters
         for epoch in range(iter_start, self._n_iters):

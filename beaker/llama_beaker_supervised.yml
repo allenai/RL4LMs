@@ -1,5 +1,5 @@
 tokenizer:
-  model_name: /net/nfs.cirrascale/mosaic/raja/llama/tokenizer
+  model_name: llama-tokenizer
   padding_side: left
   truncation_side: left
   pad_token_as_eos_token: True
@@ -24,7 +24,7 @@ alg:
       default_auto_wrap_policy: 'transformer_auto_wrap_policy'
       fsdp_transformer_layer_cls_to_wrap: LlamaDecoderLayer
   model_type: causal
-  model_name: /net/nfs.cirrascale/mosaic/raja/llama/llama-7b
+  model_name: llama-7b
   generation_kwargs:
     do_sample: True
     top_k: 20
@@ -34,8 +34,6 @@ alg:
 
 train_evaluation:
   eval_batch_size: 8
-  eval_every: 1
-  save_every: 1
   metrics:
     - id: learned_reward
       args:

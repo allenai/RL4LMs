@@ -10,6 +10,7 @@ nltk==3.7
 pandas==1.3.5
 rich==12.0.0
 stable-baselines3==1.5.1a5
+transformers @ git+https://github.com/huggingface/transformers.git@97a3d16a6941294d7d76d24f36f26617d224278e
 tqdm==4.64.0
 wandb==0.12.15
 jsonlines==3.0.0

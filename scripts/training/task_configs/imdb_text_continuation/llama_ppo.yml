@@ -1,7 +1,6 @@
 tokenizer:
-  model_name: llama
-  add_bos_token: False
-  decode_with_prefix_space: True
+  model_name: /net/nfs.cirrascale/mosaic/raja/llama/tokenizer
+  padding_side: left
   truncation_side: left
   pad_token_as_eos_token: True
 

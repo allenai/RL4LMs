@@ -9,17 +9,20 @@ tasks:
     beaker: rajammanabrolu/rl4lms-accelerate-llama-batch
   command: [ '/bin/sh', '-c']
   #arguments: ['export NCCL_DEBUG=INFO && echo $BEAKER_REPLICA_RANK && accelerate launch --config_file accelerate_config.yaml --machine_rank $BEAKER_REPLICA_RANK --main_process_ip $BEAKER_LEADER_REPLICA_HOSTNAME --num_machines 1 --num_processes 8 scripts/training/train_text_generation.py --experiment_name test --base_path_to_store_results /output --config_path /data/config/llama_beaker_ppo.yml']
-  arguments: ['export NCCL_DEBUG=INFO && accelerate launch --config_file accelerate_config.yaml --num_machines 1 --num_processes 8 scripts/training/train_text_generation.py --experiment_name test --base_path_to_store_results /output --config_path /data/config/llama_beaker_ppo.yml']
+  arguments: ['export NCCL_DEBUG=INFO && accelerate launch --config_file accelerate_config.yaml --num_machines 1 --num_processes 8 scripts/training/train_text_generation.py --experiment_name test --log_to_wandb --entity_name nlp-gym --base_path_to_store_results /output --config_path /stage/config/llama_beaker_ppo.yml']
   resources:
     gpuCount: 8
+  envVars:
+    - name: WANDB_API_KEY
+      secret: WANDB_API_KEY
   datasets:
-    - mountPath: '/data/config'
+    - mountPath: '/stage/config'
       source:
-        beaker: 01GVJXGDQE1SVD9073GM70ET2A
-    - mountPath: '/data/tokenizer'
+        beaker: 01GVPXVR7QFBTDS7HYYVYTPVJX
+    - mountPath: '/stage/llama-tokenizer'
       source:
-        beaker: 01GVJX2TCV3H7AX72E4GAYYYSK
-    - mountPath: '/data/llama-7b'
+        beaker: 01GVPWC8DNRGR0WXXR6BAS0S5R
+    - mountPath: '/stage/llama-7b'
       source:
         beaker: 01GVJWXQHD2HEN3QJ4MAPBF2Q4
   result:
