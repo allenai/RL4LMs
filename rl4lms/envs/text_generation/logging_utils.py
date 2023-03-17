@@ -155,8 +155,9 @@ class Tracker:
             wandb.finish()
 
     def save_auto_model(self, model: AutoModel):
-        model_path = os.path.join(self._run_path, "model")
-        model.save_pretrained(model_path)
+        if self._is_main_process:
+            model_path = os.path.join(self._run_path, "model")
+            model.save_pretrained(model_path)
 
     @property
     def checkpoint_base_path(self):

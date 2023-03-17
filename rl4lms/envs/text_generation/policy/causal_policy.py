@@ -34,8 +34,6 @@ from rl4lms.envs.text_generation.warm_start import (
     MaskableActorCriticWarmStartMixin,
 )
 
-from transformers import LLaMATokenizer, LLaMAForCausalLM
-
 
 class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
     def __init__(

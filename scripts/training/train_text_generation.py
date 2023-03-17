@@ -50,6 +50,7 @@ def main(
             alg_config=config["alg"],
             train_eval_config=config["train_evaluation"],
             tracker=tracker,
+            accelerator=accelerator
         )
     else:
         trainer = OnPolicyTrainer(
