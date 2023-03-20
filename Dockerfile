@@ -13,29 +13,30 @@ RUN apt-get install -y wget
 RUN apt-get install unzip
 
 # install java
-RUN apt-get install -y openjdk-8-jdk
-RUN apt-get install -y openjdk-8-jre
-RUN update-alternatives --config java
-RUN update-alternatives --config javac
+#RUN apt-get install -y openjdk-8-jdk
+#RUN apt-get install -y openjdk-8-jre
+#RUN update-alternatives --config java
+#RUN update-alternatives --config javac
 
 WORKDIR /stage/
 
 # Copy the files to /stage
 COPY setup.py ./
 COPY requirements.txt ./
-COPY accelerate_config.yaml ./
-COPY rl4lms/ ./rl4lms
-COPY scripts/ ./scripts
+#COPY accelerate_config.yaml ./
+
+#COPY rl4lms/ ./rl4lms
+#COPY scripts/ ./scripts
 
 # other model downloads
-WORKDIR /stage/rl4lms/envs/text_generation/caption_metrics/spice
-RUN chmod +700 get_stanford_models.sh
+#WORKDIR /stage/rl4lms/envs/text_generation/caption_metrics/spice
+#RUN chmod +700 get_stanford_models.sh
 #RUN ./get_stanford_models.sh
 WORKDIR /stage/
 
 # finally install the package (with dependencies)
-RUN pip install -e .
-
+#RUN pip install -e .
+RUN pip install -r requirements.txt
 WORKDIR /stage/
 
 # download external models (since it requires dependencies)
@@ -43,5 +44,8 @@ RUN pip install torch==1.13.1 --extra-index-url https://download.pytorch.org/whl
 RUN pip install markupsafe==2.0.1
 RUN python -c "import nltk; nltk.download('punkt')"
 RUN python -m spacy download en_core_web_sm
+
+COPY run.sh ./
+RUN chmod +777 run.sh
 
 

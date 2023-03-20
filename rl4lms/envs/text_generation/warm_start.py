@@ -98,8 +98,8 @@ class TrainerWarmStartMixin:
             os.makedirs(tracker.checkpoint_base_path)
             checkpoints = os.listdir(tracker.checkpoint_base_path)
 
-        if len(checkpoints) == 0:
-            return None, None
+        #if len(checkpoints) == 0:
+        return None, None
 
         sorted_ckpts = sorted(checkpoints, reverse=True,
                               key=lambda ckpt: int(ckpt.split("_")[1]))

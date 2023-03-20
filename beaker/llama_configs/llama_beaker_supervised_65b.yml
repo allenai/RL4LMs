@@ -1,30 +1,31 @@
 tokenizer:
-  model_name: /stage/opt-30b
+  model_name: llama-tokenizer
   padding_side: left
   truncation_side: left
   pad_token_as_eos_token: True
   max_length: 64
 
 datapool:
-  id: "imdb_seq2seq"
+  id: "daily_dialog"
   args:
-    positive_ratio: 1.0
+    context_size: 5
 
 alg:
   id: supervised
   training_args:
-    per_device_train_batch_size: 1
+    per_device_train_batch_size: 2
     logging_steps: 200
     num_train_epochs: 10
     lr_scheduler_type: "constant"
     learning_rate: 0.00001
     save_total_limit: 1
-    fsdp: "auto_wrap"
+    fsdp: "full_shard auto_wrap"
     fsdp_config:
-      fsdp_transformer_layer_cls_to_wrap: OPTDecoderLayer
-      fsdp_backward_prefetch: "backwards_pre"
+      default_auto_wrap_policy: 'transformer_auto_wrap_policy'
+      fsdp_transformer_layer_cls_to_wrap: LlamaDecoderLayer
+      fsdp_backward_prefetch: 'backward_pre'
   model_type: causal
-  model_name: /stage/opt-30b
+  model_name: llama-65b
   generation_kwargs:
     do_sample: True
     top_k: 20
@@ -33,9 +34,14 @@ alg:
     post_processing_fn: null
 
 train_evaluation:
-  eval_batch_size: 1
-  save_every: 51
+  eval_batch_size: 8
   metrics:
+    - id: learned_reward
+      args:
+        model_name: lvwerra/distilbert-imdb
+        label_ix: 1
+        batch_size: 100
     - id: diversity
       args: {}
+
 

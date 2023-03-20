@@ -24,6 +24,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 from stable_baselines3.common.utils import obs_as_tensor
 from transformers import (
+    AutoConfig,
     AutoTokenizer,
     AutoModelForCausalLM,
     AutoModelForSeq2SeqLM,
@@ -42,7 +43,9 @@ from rl4lms.envs.text_generation.utils_supervised import (
     EvalCallack,
 )
 from rl4lms.envs.text_generation.warm_start import TrainerWarmStartMixin
+from accelerate import init_empty_weights, load_checkpoint_and_dispatch, infer_auto_device_map
 
+from transformers import LlamaConfig, LlamaForCausalLM
 
 def fsdp_prepare(policy, env, device):
     """
@@ -267,7 +270,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
     def train_and_eval(self):
         # evaluate on val and test set before fine-tuning once
         iter_start = self._trainer_state["current_iter"]
-        self._evaluate_on_datapools(epoch=iter_start)
+        #self._evaluate_on_datapools(epoch=iter_start)
 
         # train for given number of iters
         for epoch in range(iter_start, self._n_iters):
@@ -323,7 +326,7 @@ class SupervisedTrainer:
 
     def _evaluate_on_datapools(self, epoch: int, splits: List[str] = ["val", "test"]):
         # also prepare model?
-        self._model = self._accelerator.prepare(self._model)
+        #self._model = self._accelerator.prepare(self._model)
         batch = self._tokenizer(["random text"], return_tensors="pt").to(self._accelerator.device)
         outputs = self._model(**batch)
 
@@ -359,8 +362,9 @@ class SupervisedTrainer:
             else tokenize_seq2seq
         )
         preprocess_fn = partial(preprocess_fn, tokenizer=self._tokenizer)
-        self._tokenized_dataset = self._train_dataset.map(
-            preprocess_fn, batched=True, remove_columns=self._train_dataset.column_names
+        with self._accelerator.local_main_process_first():
+            self._tokenized_dataset = self._train_dataset.map(
+                preprocess_fn, batched=True,remove_columns=self._train_dataset.column_names
         )
         self._model_cls = (
             AutoModelForCausalLM
@@ -368,7 +372,59 @@ class SupervisedTrainer:
             else AutoModelForSeq2SeqLM
         )
         self._gen_kwargs = self._alg_config["generation_kwargs"]
-        self._model = self._model_cls.from_pretrained(self._alg_config["model_name"])
+
+        #device_map = {'model.embed_tokens': 'cpu', 'model.layers.0': 'cpu', 'model.layers.1': 'cpu', 'model.layers.2': 'cpu', 'model.layers.3': 'cpu', 'model.layers.4': 'cpu', 'model.layers.5': 'cpu', 'model.layers.6': 'cpu', 'model.layers.7': 'cpu', 'model.layers.8': 'cpu', 'model.layers.9': 'cpu', 'model.layers.10': 'cpu', 'model.layers.11': 'cpu', 'model.layers.12': 'cpu', 'model.layers.13': 'cpu', 'model.layers.14': 'cpu', 'model.layers.15': 'cpu', 'model.layers.16': 'cpu', 'model.layers.17': 'cpu', 'model.layers.18': 'cpu', 'model.layers.19': 'cpu', 'model.layers.20': 'cpu', 'model.layers.21': 'cpu', 'model.layers.22': 'cpu', 'model.layers.23': 'cpu', 'model.layers.24': 'cpu', 'model.layers.25': 'cpu', 'model.layers.26': 'cpu', 'model.layers.27': 'cpu', 'model.layers.28': 'cpu', 'model.layers.29': 'cpu', 'model.layers.30': 'cpu', 'model.layers.31': 'cpu', 'model.layers.32': 'cpu', 'model.layers.33': 'cpu', 'model.layers.34.self_attn.q_proj': 'cpu', 'model.layers.34.self_attn.k_proj': 'cpu', 'model.layers.34.self_attn.v_proj': 'cpu', 'model.layers.34.self_attn.o_proj': 'cpu', 'model.layers.34.self_attn.rotary_emb': 'cpu', 'model.layers.34.mlp': 'cpu', 'model.layers.34.input_layernorm': 'cpu', 'model.layers.34.post_attention_layernorm': 'cpu', 'model.layers.35': 'cpu', 'model.layers.36': 'cpu', 'model.layers.37': 'cpu', 'model.layers.38': 'cpu', 'model.layers.39': 'cpu', 'model.layers.40': 'cpu', 'model.layers.41': 'cpu', 'model.layers.42': 'cpu', 'model.layers.43': 'cpu', 'model.layers.44': 'cpu', 'model.layers.45': 'cpu', 'model.layers.46': 'cpu', 'model.layers.47': 'cpu', 'model.layers.48': 'cpu', 'model.layers.49': 'cpu', 'model.layers.50': 'cpu', 'model.layers.51': 'cpu', 'model.layers.52': 'cpu', 'model.layers.53': 'cpu', 'model.layers.54': 'cpu', 'model.layers.55': 'cpu', 'model.layers.56': 'cpu', 'model.layers.57': 'cpu', 'model.layers.58': 'cpu', 'model.layers.59': 'cpu', 'model.norm': 'cpu', 'lm_head': 'cpu'}
+
+        #device_map = {'model.embed_tokens': 0, 'model.layers.0': 1, 'model.layers.1': 2, 'model.layers.2': 3, 'model.layers.3': 4, 'model.layers.4': 5, 'model.layers.5': 6, 'model.layers.6': 7, 'model.layers.7': 8, 'model.layers.8': 9, 'model.layers.9': 10, 'model.layers.10': 11, 'model.layers.11': 12, 'model.layers.12': 13, 'model.layers.13': 14, 'model.layers.14': 15, 'model.layers.15': 16, 'model.layers.16': 17, 'model.layers.17': 18, 'model.layers.18': 19, 'model.layers.19': 20, 'model.layers.20': 21, 'model.layers.21': 22, 'model.layers.22': 23, 'model.layers.23': 24, 'model.layers.24': 25, 'model.layers.25': 26, 'model.layers.26': 27, 'model.layers.27': 28, 'model.layers.28': 29, 'model.layers.29': 30, 'model.layers.30': 31, 'model.layers.31': 32, 'model.layers.32': 33, 'model.layers.33': 34, 'model.layers.34.self_attn.q_proj': 35, 'model.layers.34.self_attn.k_proj': 36, 'model.layers.34.self_attn.v_proj': 37, 'model.layers.34.self_attn.o_proj': 38, 'model.layers.34.self_attn.rotary_emb': 39, 'model.layers.34.mlp': 0, 'model.layers.34.input_layernorm': 1, 'model.layers.34.post_attention_layernorm': 2, 'model.layers.35': 3, 'model.layers.36': 4, 'model.layers.37': 5, 'model.layers.38': 6, 'model.layers.39': 7, 'model.layers.40': 8, 'model.layers.41': 9, 'model.layers.42': 10, 'model.layers.43': 11, 'model.layers.44': 12, 'model.layers.45': 13, 'model.layers.46': 14, 'model.layers.47': 15, 'model.layers.48': 16, 'model.layers.49': 17, 'model.layers.50': 18, 'model.layers.51': 19, 'model.layers.52': 20, 'model.layers.53': 21, 'model.layers.54': 22, 'model.layers.55': 23, 'model.layers.56': 24, 'model.layers.57': 25, 'model.layers.58': 26, 'model.layers.59': 27, 'model.norm': 28, 'lm_head': 29}
+
+        #device_map = {'model.embed_tokens': 0, 'model.layers.0': 0, 'model.layers.1': 0, 'model.layers.2': 0, 'model.layers.3': 0, 'model.layers.4': 0, 'model.layers.5': 0, 'model.layers.6': 0, 'model.layers.7': 0, 'model.layers.8': 0, 'model.layers.9': 0, 'model.layers.10': 0, 'model.layers.11': 0, 'model.layers.12': 0, 'model.layers.13': 0, 'model.layers.14': 0, 'model.layers.15': 0, 'model.layers.16': 0, 'model.layers.17': 0, 'model.layers.18': 0, 'model.layers.19': 0, 'model.layers.20': 0, 'model.layers.21': 0, 'model.layers.22': 0, 'model.layers.23': 0, 'model.layers.24': 0, 'model.layers.25': 0, 'model.layers.26': 0, 'model.layers.27': 0, 'model.layers.28': 0, 'model.layers.29': 0, 'model.layers.30': 0, 'model.layers.31': 0, 'model.layers.32.self_attn': 0, 'model.layers.32.mlp.gate_proj': 0, 'model.layers.32.mlp.down_proj': 0, 'model.layers.32.mlp.up_proj': 1, 'model.layers.32.mlp.act_fn': 1, 'model.layers.32.input_layernorm': 1, 'model.layers.32.post_attention_layernorm': 1, 'model.layers.33': 1, 'model.layers.34': 1, 'model.layers.35': 1, 'model.layers.36': 1, 'model.layers.37': 1, 'model.layers.38': 1, 'model.layers.39': 1, 'model.norm': 1, 'lm_head': 1}
+
+        # new_device_map = {}
+        # world_size = torch.distributed.get_world_size() #40
+        # local_world_size = torch.cuda.device_count() # 8
+        # machines = int(world_size / local_world_size)
+        # rank = torch.distributed.get_rank()
+        #
+        # for i, k in enumerate(device_map.keys()):
+        #     layer_device_map_start = int(rank / local_world_size) * local_world_size
+        #     layer_idx = i % local_world_size
+        #     new_device_map[k] = 'cpu'#''layer_device_map_start + layer_idx
+        #
+        # print("NEW DEVICE MAP", world_size, local_world_size, rank, new_device_map)
+
+        #if self._accelerator.is_main_process:
+        #memory_dict = {i: '2GIB' for i in range(40)}
+        #memory_dict['cpu'] = '512GIB'
+        with self._accelerator.local_main_process_first():
+            self._model = self._model_cls.from_pretrained(self._alg_config["model_name"],
+                                                          #max_memory=memory_dict,
+                                                          low_cpu_mem_usage=True)
+            #self._model = self._model_cls.from_pretrained(self._alg_config["model_name"], offload_folder='.', offload_state_dict=True, low_cpu_mem_usage=True)
+            #, no_split_module_classes=["LlamaDecoderLayer"])
+
+#         config = LlamaConfig.from_pretrained(self._alg_config["model_name"])
+#         with init_empty_weights():
+#             self._model = LlamaForCausalLM(config)
+#             map = infer_auto_device_map(self._model)
+#             print("DEVICE MAPPPPP", map)
+#             print("WORLDDDD", torch.distributed.get_rank()
+# , torch.distributed.get_world_size(), torch.cuda.device_count())
+
+    #13b auto device map on one node
+    # {'model.embed_tokens': 0, 'model.layers.0': 0, 'model.layers.1': 0, 'model.layers.2': 0, 'model.layers.3': 0, 'model.layers.4': 0, 'model.layers.5': 0, 'model.layers.6': 0, 'model.layers.7': 0, 'model.layers.8': 0, 'model.layers.9': 0, 'model.layers.10': 0, 'model.layers.11': 0, 'model.layers.12': 0, 'model.layers.13': 0, 'model.layers.14': 0, 'model.layers.15': 0, 'model.layers.16': 0, 'model.layers.17': 0, 'model.layers.18': 0, 'model.layers.19': 0, 'model.layers.20': 0, 'model.layers.21': 0, 'model.layers.22': 0, 'model.layers.23': 0, 'model.layers.24': 0, 'model.layers.25': 0, 'model.layers.26': 0, 'model.layers.27': 0, 'model.layers.28': 0, 'model.layers.29': 0, 'model.layers.30': 0, 'model.layers.31': 0, 'model.layers.32.self_attn': 0, 'model.layers.32.mlp.gate_proj': 0, 'model.layers.32.mlp.down_proj': 0, 'model.layers.32.mlp.up_proj': 1, 'model.layers.32.mlp.act_fn': 1, 'model.layers.32.input_layernorm': 1, 'model.layers.32.post_attention_layernorm': 1, 'model.layers.33': 1, 'model.layers.34': 1, 'model.layers.35': 1, 'model.layers.36': 1, 'model.layers.37': 1, 'model.layers.38': 1, 'model.layers.39': 1, 'model.norm': 1, 'lm_head': 1}
+
+    #30b auto device map
+    # {'model.embed_tokens': 0, 'model.layers.0': 0, 'model.layers.1': 0, 'model.layers.2': 0, 'model.layers.3': 0, 'model.layers.4': 0, 'model.layers.5': 0, 'model.layers.6': 0, 'model.layers.7': 0, 'model.layers.8': 0, 'model.layers.9': 0, 'model.layers.10': 0, 'model.layers.11': 0, 'model.layers.12': 0, 'model.layers.13': 0, 'model.layers.14': 0, 'model.layers.15': 0, 'model.layers.16': 0, 'model.layers.17': 0, 'model.layers.18': 0, 'model.layers.19': 0, 'model.layers.20': 0, 'model.layers.21': 0, 'model.layers.22': 0, 'model.layers.23': 0, 'model.layers.24': 0, 'model.layers.25': 0, 'model.layers.26': 0, 'model.layers.27': 0, 'model.layers.28': 0, 'model.layers.29': 0, 'model.layers.30': 0, 'model.layers.31': 0, 'model.layers.32': 0, 'model.layers.33': 0, 'model.layers.34.self_attn.q_proj': 0, 'model.layers.34.self_attn.k_proj': 0, 'model.layers.34.self_attn.v_proj': 0, 'model.layers.34.self_attn.o_proj': 1, 'model.layers.34.self_attn.rotary_emb': 1, 'model.layers.34.mlp': 1, 'model.layers.34.input_layernorm': 1, 'model.layers.34.post_attention_layernorm': 1, 'model.layers.35': 1, 'model.layers.36': 1, 'model.layers.37': 1, 'model.layers.38': 1, 'model.layers.39': 1, 'model.layers.40': 1, 'model.layers.41': 1, 'model.layers.42': 1, 'model.layers.43': 1, 'model.layers.44': 1, 'model.layers.45': 1, 'model.layers.46': 1, 'model.layers.47': 1, 'model.layers.48': 1, 'model.layers.49': 1, 'model.layers.50': 1, 'model.layers.51': 1, 'model.layers.52': 1, 'model.layers.53': 1, 'model.layers.54': 1, 'model.layers.55': 1, 'model.layers.56': 1, 'model.layers.57': 1, 'model.layers.58': 1, 'model.layers.59': 1, 'model.norm': 1, 'lm_head': 1}
+
+        # #self._model = self._model_cls.from_pretrained(self._alg_config["model_name"], offload_folder='.')#, device_map='auto')
+        # #self._model = self._model.to('cpu')
+        # #self._model = self._accelerator.prepare(self._model)
+        # #
+        # self._model = load_checkpoint_and_dispatch(
+        #     self._model, self._alg_config["model_name"], device_map="auto", no_split_module_classes=["LlamaDecoderLayer"]
+        # )
+        # self._model = self._model.to(self._accelerator.device)
+
         self._eval_batch_size = self._train_eval_config["eval_batch_size"]
 
         # setting max prompt length
@@ -417,12 +473,14 @@ class SupervisedTrainer:
             else DataCollatorForSeq2Seq(self._tokenizer, self._model)
         )
 
+        #if self._accelerator.is_main_process:
+
     def train_and_eval(self):
         # # evaluate on val and test set before fine-tuning once
-        self._evaluate_on_datapools(epoch=0)
+        #self._evaluate_on_datapools(epoch=0)
 
         # might have to reload the model again since trainer does not like the wrapped model
-        self._model = self._model_cls.from_pretrained(self._alg_config["model_name"])
+        # self._model = self._model_cls.from_pretrained(self._alg_config["model_name"])
 
         self._trainer = Trainer(
             model=self._model,
@@ -432,6 +490,7 @@ class SupervisedTrainer:
             train_dataset=self._tokenized_dataset,
             callbacks=[self._eval_callback],
         )
+
 
         # train using HF trainer
         self._trainer.train()

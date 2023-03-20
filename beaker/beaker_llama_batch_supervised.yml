@@ -1,15 +1,15 @@
 version: v2
-description: accelerate_rl4lms_llama
+description: accelerate-rl4lms-llama-5node-supervised
 tasks:
-- name: accelerate-rl4lms-llama
-  #replicas: 1
-  #leaderSelection: true
-  #hostNetworking: true
+- name: accelerate-rl4lms-llama-5node-supervised
+  replicas: 5
+  leaderSelection: true
+  hostNetworking: true
   image:
-    beaker: rajammanabrolu/rl4lms-accelerate-llama-batch
+    beaker: rajammanabrolu/rl4lms-accelerate-llama-batch-noeval-dev-1
   command: [ '/bin/sh', '-c']
-  #arguments: ['export NCCL_DEBUG=INFO && echo $BEAKER_REPLICA_RANK && accelerate launch --config_file accelerate_config.yaml --machine_rank $BEAKER_REPLICA_RANK --main_process_ip $BEAKER_LEADER_REPLICA_HOSTNAME --num_machines 1 --num_processes 8 scripts/training/train_text_generation.py --experiment_name test --base_path_to_store_results /output --config_path /data/config/llama_beaker_ppo.yml']
-  arguments: ['export NCCL_DEBUG=INFO && accelerate launch --config_file accelerate_config.yaml --num_machines 1 --num_processes 8 scripts/training/train_text_generation.py --experiment_name test --base_path_to_store_results /output --experiment_name test --log_to_wandb --entity_name nlp-gym --config_path /stage/config/llama_beaker_supervised.yml']
+  #arguments: ['cd /stage/code/ && export PYTHONPATH=/stage/code:/stage/code/rl4lms:$PYTHONPATH && accelerate launch --config_file beaker/llama_configs/accelerate_llama_config.yaml --machine_rank $BEAKER_REPLICA_RANK --main_process_ip $BEAKER_LEADER_REPLICA_HOSTNAME --main_process_port 29401 beaker/run_clm.py --model_name_or_path "/stage/llama-30b" --tokenizer_name "/stage/llama-tokenizer" --per_device_train_batch_size 1 --output_dir "/output" --overwrite_output_dir --fp16 --do_train --max_train_samples 500 --num_train_epochs 1 --dataset_name "wikitext" --dataset_config "wikitext-2-v1" --fsdp "full_shard offload auto_wrap" --fsdp_transformer_layer_cls_to_wrap "LlamaDecoderLayer" --optim "adamw_torch"']
+  arguments: ['cd /stage/code/ && export PYTHONPATH=/stage/code:/stage/code/rl4lms:$PYTHONPATH && echo $PYTHONPATH && bash run.sh /stage/code/beaker/llama_configs/accelerate_llama_config.yaml /stage/code/beaker/llama_configs/llama_beaker_supervised_7b.yml /stage/code/scripts/training/train_text_generation.py']
   resources:
     gpuCount: 8
   envVars:
@@ -18,25 +18,49 @@ tasks:
   datasets:
     - mountPath: '/stage/config'
       source:
-        beaker: 01GVPYE0D7AG8T3WGG785X0D2F
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/llama/llama_configs'
     - mountPath: '/stage/llama-tokenizer'
       source:
-        beaker: 01GVPWC8DNRGR0WXXR6BAS0S5R
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/llama/llama-tokenizer'
     - mountPath: '/stage/llama-7b'
       source:
-        beaker: 01GVJWXQHD2HEN3QJ4MAPBF2Q4
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/llama/llama-7b'
+    - mountPath: '/stage/llama-13b'
+      source:
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/llama/llama-13b'
+    - mountPath: '/stage/llama-30b'
+      source:
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/llama/llama-30b'
+    - mountPath: '/stage/llama-65b'
+      source:
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/llama/llama-65b'
+    - mountPath: '/stage/code/'
+      source:
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/RL4LMs'
+    - mountPath: '/stage/.cache'
+      source:
+        hostPath: '/net/nfs.cirrascale/mosaic/raja/hf_cache/.cache/huggingface'
+#    - mountPath: '/stage/config'
+#      source:
+#        beaker: 01GVRBWV35ZNN96EPPTDP9PDRM
+#    - mountPath: '/stage/llama-tokenizer'
+#      source:
+#        beaker: 01GVPWC8DNRGR0WXXR6BAS0S5R
+#    - mountPath: '/stage/llama-7b'
+#      source:
+#        beaker: 01GVJWXQHD2HEN3QJ4MAPBF2Q4
 #    - mountPath: '/stage/llama-13b'
-#        source:
-#          beaker: 01GVJX37MDM01Z8E73CP2XMJM3
+#      source:
+#        beaker: 01GVJX37MDM01Z8E73CP2XMJM3
 #    - mountPath: '/stage/llama-30b'
-#        source:
-#          beaker: 01GVK1YRTRSNNPZEN6VDT33S8X
+#      source:
+#        beaker: 01GVK1YRTRSNNPZEN6VDT33S8X
 #    - mountPath: '/stage/llama-65b'
-#        source:
-#          beaker: 01GVK2T2CJJNJTHB5GRWHY2JTP
+#      source:
+#        beaker: 01GVK2T2CJJNJTHB5GRWHY2JTP
   result:
     path: /output
   context:
-    priority: normal
+    priority: high
   constraints:
-    cluster: [ ai2/raja-a100-80gb ]
+    cluster: [ ai2/general-cirrascale-a100-80g-ib ]

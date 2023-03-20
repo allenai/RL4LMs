@@ -25,6 +25,11 @@ def main(
     with open(config_path, "r") as fp:
         config = yaml.safe_load(fp)
 
+    #with open('/stage/config/accelerate_llama_config.yaml', 'r') as f:
+    #with open('/home/raja/RL4LMs/beaker/llama_configs/accelerate_llama_config.yaml', 'r') as f:
+    #    acc_config = yaml.safe_load(f)
+    #    print(acc_config)
+
     # init accelerator
     accelerator = Accelerator()
 
@@ -41,6 +46,8 @@ def main(
         log_to_wandb,
         is_main_process=accelerator.is_main_process,
     )
+
+    print("VROOOM VROOOM", accelerator.is_main_process, accelerator.is_local_main_process, accelerator.process_index)
 
     # instantiate the trainer here
     if "supervised" in config["alg"]["id"]:

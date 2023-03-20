@@ -8,7 +8,7 @@ from stable_baselines3.common.distributions import CategoricalDistribution
 from stable_baselines3.common.type_aliases import Schedule, TensorDict
 from torch import nn
 from torch.distributions import Categorical
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from transformers.modeling_utils import unwrap_model
 from accelerate.utils.dataclasses import DistributedType
 
@@ -33,6 +33,7 @@ from rl4lms.envs.text_generation.warm_start import (
     ActorCriticWarmStartMixin,
     MaskableActorCriticWarmStartMixin,
 )
+from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 
 
 class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
@@ -69,13 +70,29 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
         self.load_from_dict(state_dict)
 
     def _build_model_heads(self, model_name: str):
-        self._policy_model = AutoModelForCausalLM.from_pretrained(model_name)
+        # config = AutoConfig.from_pretrained(model_name)
+        # with init_empty_weights():
+        #     model = AutoModelForCausalLM.from_config(config)
+        #
+        # self._policy_model = load_checkpoint_and_dispatch(
+        #     model, model_name, device_map="auto", no_split_module_classes=["LlamaDecoderLayer"]
+        # )
+        self._policy_model = AutoModelForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True)
+        #self._ref_model = AutoModelForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True)
+        self._ref_model = deepcopy(self._policy_model)
+        self._ref_model.eval()
+        #self._ref_model.eval()
         # self._policy_model.__class__ = override_generation_routines(
         #     type(self._policy_model)
         # )
 
-        self._value_model = AutoModelForCausalLM.from_pretrained(model_name)
-        self._ref_model = deepcopy(self._policy_model).eval()
+        #self._value_model = load_checkpoint_and_dispatch(
+        #    model, model_name, device_map="auto", no_split_module_classes=["LlamaDecoderLayer"]
+        #)
+        # self._ref_model = load_checkpoint_and_dispatch(
+        #     model, model_name, device_map="auto", no_split_module_classes=["LlamaDecoderLayer"]
+        # ).eval()
+        # self._ref_model = deepcopy(self._policy_model).eval()
 
         # we need to mark these as not requiring gradients
         # because DDP won't sync otherwise since these are not
@@ -85,7 +102,7 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
                 param.requires_grad = False
 
         self._value_head = nn.Linear(
-            self._value_model.config.hidden_size, 1, bias=False
+            self._policy_model.config.hidden_size, 1, bias=False
         )
 
     def _prepare_inputs_for_model(
@@ -171,11 +188,11 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
                 "attention_mask": attention_mask,
             }
         model_inputs = self._prepare_inputs_for_model(
-            self._value_model, input_ids, past_model_kwargs
+            self._policy_model, input_ids, past_model_kwargs
         )
 
         # forward pass to transformers
-        output = self._value_model(output_hidden_states=True, **model_inputs)
+        output = self._policy_model(output_hidden_states=True, **model_inputs)
 
         # pool the hidden states ?
         last_tokens_hidden = output.hidden_states[-1][:, -1, :]
@@ -183,12 +200,12 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
 
         # update the model kwargs for further generation
         past_model_kwargs = unwrap_model(
-            self._value_model
+            self._policy_model
         )._update_model_kwargs_for_generation(
             output,
             past_model_kwargs,
             is_encoder_decoder=unwrap_model(
-                self._value_model
+                self._policy_model
             ).config.is_encoder_decoder,
         )
 

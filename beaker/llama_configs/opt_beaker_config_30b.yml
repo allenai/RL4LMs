@@ -1,5 +1,5 @@
 tokenizer:
-  model_name: /stage/opt-30b
+  model_name: facebook/opt-30b
   padding_side: left
   truncation_side: left
   pad_token_as_eos_token: True
@@ -24,7 +24,7 @@ alg:
       fsdp_transformer_layer_cls_to_wrap: OPTDecoderLayer
       fsdp_backward_prefetch: "backwards_pre"
   model_type: causal
-  model_name: /stage/opt-30b
+  model_name: facebook/opt-30b
   generation_kwargs:
     do_sample: True
     top_k: 20

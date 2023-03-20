@@ -19,4 +19,5 @@ sacrebleu==2.2.0
 py-rouge==1.1
 absl-py
 six
-accelerate
+evaluate
+accelerate @ git+https://github.com/huggingface/accelerate.git@82c2665cd6338e2ee20d6a92f7e11f1087e12f53

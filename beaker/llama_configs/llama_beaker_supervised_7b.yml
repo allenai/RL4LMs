@@ -23,6 +23,7 @@ alg:
     fsdp_config:
       default_auto_wrap_policy: 'transformer_auto_wrap_policy'
       fsdp_transformer_layer_cls_to_wrap: LlamaDecoderLayer
+      fsdp_backward_prefetch: 'backward_pre'
   model_type: causal
   model_name: llama-7b
   generation_kwargs:
@@ -33,13 +34,8 @@ alg:
     post_processing_fn: null
 
 train_evaluation:
-  eval_batch_size: 8
+  eval_batch_size: 2
   metrics:
-    - id: learned_reward
-      args:
-        model_name: lvwerra/distilbert-imdb
-        label_ix: 1
-        batch_size: 100
     - id: diversity
       args: {}
 

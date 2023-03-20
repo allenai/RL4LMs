@@ -1,6 +1,7 @@
 tokenizer:
-  model_name: /net/nfs.cirrascale/mosaic/raja/llama/llama-tokenizer
-  padding_side: left
+  model_name: /stage/llama-tokenizer
+  add_bos_token: False
+  decode_with_prefix_space: True
   truncation_side: left
   pad_token_as_eos_token: True
 
@@ -29,7 +30,7 @@ alg:
     batch_size: 2
     verbose: 1
     learning_rate: 0.000001
-    n_epochs: 5
+    n_epochs: 1
 
   kl_div:
     coeff: 0.1
@@ -37,7 +38,7 @@ alg:
   policy:
     id: causal_lm_actor_critic_policy
     args:
-      model_name: /net/nfs.cirrascale/mosaic/raja/llama/llama-7b
+      model_name: /stage/llama-13b
       #apply_model_parallel: True
       generation_kwargs:
         do_sample: True
@@ -46,9 +47,9 @@ alg:
 
 train_evaluation:
   eval_batch_size: 2
-  n_iters: 50
-  eval_every: 10
-  save_every: 51
+  n_iters: 20
+  eval_every: 5
+  save_every: 5
   metrics:
     - id: learned_reward
       args:

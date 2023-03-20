@@ -1,10 +1,19 @@
 from datasets import load_dataset
 from transformers import AutoTokenizer, DataCollatorWithPadding
 from tqdm.auto import tqdm
+from accelerate import Accelerator
+from transformers import AdamW, AutoModelForSequenceClassification, get_scheduler
+from transformers import AutoModelForCausalLM
+from torch.utils.data import DataLoader
+
 
 def main():
     raw_datasets = load_dataset("glue", "mrpc")
-    checkpoint = "bert-base-uncased"
+    #checkpoint = "bert-base-uncased"
+    #checkpoint_tok = '/net/nfs.cirrascale/mosaic/raja/llama/llama-tokenizer'
+    #checkpoint = '/net/nfs.cirrascale/mosaic/raja/llama/llama-7b'
+    #tokenizer = AutoTokenizer.from_pretrained(checkpoint_tok)
+    checkpoint = 'bigscience/bloom-7b1'
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
 
@@ -21,7 +30,6 @@ def main():
     tokenized_datasets.set_format("torch")
 
 
-    from torch.utils.data import DataLoader
 
     train_dataloader = DataLoader(
         tokenized_datasets["train"], shuffle=True, batch_size=8, collate_fn=data_collator
@@ -30,17 +38,14 @@ def main():
         tokenized_datasets["validation"], batch_size=8, collate_fn=data_collator
     )
 
-
-    from accelerate import Accelerator
-    from transformers import AdamW, AutoModelForSequenceClassification, get_scheduler
-
     accelerator = Accelerator()
 
     model = AutoModelForSequenceClassification.from_pretrained(checkpoint, num_labels=2)
+    model = accelerator.prepare(model)
     optimizer = AdamW(model.parameters(), lr=3e-5)
 
-    train_dl, eval_dl, model, optimizer = accelerator.prepare(
-        train_dataloader, eval_dataloader, model, optimizer
+    train_dl, eval_dl, optimizer = accelerator.prepare(
+        train_dataloader, eval_dataloader, optimizer
     )
     print("ACCELERATE", accelerator.is_main_process, accelerator.process_index)
 
