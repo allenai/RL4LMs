@@ -225,6 +225,9 @@ class IMDB(TextGenPool):
         samples = []
         for ix, text in enumerate(dataset_split["text"]):
 
+            if ix == 2000:
+                break
+
             # here we consider 50% of tokens as prompt
             prompt_text = text.split(" ")
             prompt_text = " ".join(prompt_text[:int(len(prompt_text) * 0.5)])
@@ -244,7 +247,7 @@ class IMDBForSeq2Seq(TextGenPool):
     """
     @classmethod
     def prepare(cls, split: str, positive_ratio: int = 1.0):
-        dataset = load_dataset("imdb")
+        dataset = load_dataset("imdb", ignore_verifications=True)
         if split in ["train", "val"]:
             dataset_split = dataset["train"].shuffle()
             train_ratio = 0.8
@@ -266,7 +269,7 @@ class IMDBForSeq2Seq(TextGenPool):
 
             # add only positive examples for train set
             if split == "train" and label == 1 or split != "train":
-                sample = Sample(id=f"{split}_{ix}",
+                sample = Sample(id=ix,
                                 prompt_or_input_text=prompt_text,
                                 references=[ref_text],
                                 meta_data={

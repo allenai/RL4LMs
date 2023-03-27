@@ -9,6 +9,7 @@ from tqdm import tqdm
 from datasets.arrow_dataset import Dataset
 from torch.utils.data import DataLoader
 from rl4lms.envs.text_generation.registry import PostProcessorRegistry, MetricRegistry
+from rl4lms.envs.text_generation.metric_utils import compute_single_metric
 from accelerate import Accelerator
 from rl4lms.envs.text_generation.metric import BaseMetric
 from rl4lms.envs.text_generation.policy.base_policy import GenerationOutputs
@@ -34,11 +35,9 @@ def evaluate_on_samples(model: PreTrainedModel,
                         tracker: Tracker = None,
                         generation_kwargs: Dict[str, Any] = {},
                         accelerator: Accelerator = None
-                        ):
-    
-
+                        ):    
     # tracker
-    tracker.log_info("DISTRIBUTED EVALUATION STARTED")
+    tracker.log_info("DISTRIBUTED INFERENCE STARTED")
 
     # wait for everyone
     accelerator.wait_for_everyone()
@@ -54,22 +53,31 @@ def evaluate_on_samples(model: PreTrainedModel,
             generations_by_sample_ids[sample_id] = gen_text
 
     # tracker
-    tracker.log_info("DISTRIBUTED EVALUATION FINISHED")
+    tracker.log_info("DISTRIBUTED INFERENCE FINISHED")
 
-    if accelerator.is_main_process:
-        # compute metrics
-        sample_predictions_dict, corpus_level_metrics = compute_metrics(dataloader, 
-                                                                        metrics, 
-                                                                        generations_by_sample_ids, 
-                                                                        split_name, 
-                                                                        model,
-                                                                        accelerator)
 
-        if tracker is not None:
-            # log the entire predictions
-            tracker.log_predictions(epoch, split_name, sample_predictions_dict)
-            # log the corpus level scores
-            tracker.log_metrics(epoch, split_name, corpus_level_metrics)
+    # we need to be able to compute metrics differently here
+    # two types of metrics
+    # 1) one non-distributed which runs only on main process
+    # 2) distributed which runs on all processes  - basically this is used for perplexity computations
+
+    # compute metrics
+    sample_predictions_dict, corpus_level_metrics = compute_metrics(dataloader, 
+                                                                    metrics, 
+                                                                    generations_by_sample_ids, 
+                                                                    split_name, 
+                                                                    model,
+                                                                    accelerator)
+
+    if tracker is not None:
+        # log the entire predictions
+        tracker.log_predictions(epoch, split_name, sample_predictions_dict)
+        # log the corpus level scores
+        tracker.log_metrics(epoch, split_name, corpus_level_metrics)
+
+
+    # wait for everyone
+    accelerator.wait_for_everyone()
 
 
 def generate_text(model: PreTrainedModel,
@@ -274,14 +282,10 @@ def compute_metrics(dataloader: DataLoader,
     n_samples = len(all_sample_ids)
     if metrics is not None:
         for metric in metrics:
-            metric_dict = metric.compute(
-                all_prompt_texts,
-                all_generated_texts,
-                all_ref_texts,
-                all_meta_infos,
-                accelerator.unwrap_model(model),
-                split_name,
-            )
+            metric_dict = compute_single_metric(metric, all_prompt_texts, 
+                                                all_generated_texts, all_ref_texts,
+                                                all_meta_infos, model,
+                                                split_name, accelerator)
 
             for metric_key, (sample_scores, corpus_score) in metric_dict.items():
                 if sample_scores is None:

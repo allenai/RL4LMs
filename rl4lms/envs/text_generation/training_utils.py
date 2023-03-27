@@ -67,18 +67,21 @@ def build_tokenizer(tokenizer_config: Dict[str, Any]):
     return tokenizer
 
 
-def build_reward_fn(reward_config: Dict[str, Any]):
+def build_reward_fn(reward_config: Dict[str, Any], accelerator: Accelerator):
+    reward_fn_args = reward_config.get("args", {})
+    reward_fn_args["accelerator"] = accelerator
     reward_fn = RewardFunctionRegistry.get(
         reward_config["id"], reward_config.get("args", {})
     )
     return reward_fn
 
 
-def build_metrics(metric_configs: List[Dict[str, Any]]):
-    metrics = [
-        MetricRegistry.get(metric_config["id"], metric_config.get("args", {}))
-        for metric_config in metric_configs
-    ]
+def build_metrics(metric_configs: List[Dict[str, Any]], accelerator: Accelerator):
+    metrics = []
+    for metric_config in metric_configs:
+        metric_args =  metric_config.get("args", {})
+        metric_args["accelerator"] = accelerator
+        metrics.append(MetricRegistry.get(metric_config["id"], metric_args))
     return metrics
 
 
@@ -192,8 +195,8 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
 
         # build components
         self._tokenizer = build_tokenizer(self._tokenizer_config)
-        self._reward_fn = build_reward_fn(self._reward_config)
-        self._metrics = build_metrics(self._train_eval_config.get("metrics", []))
+        self._reward_fn = build_reward_fn(self._reward_config, self._accelerator)
+        self._metrics = build_metrics(self._train_eval_config.get("metrics", []), self._accelerator)
         self._samples_by_split = build_datapool(self._datapool_config)
         self._env = build_env(
             self._env_config,
@@ -266,7 +269,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
     def train_and_eval(self):
         # evaluate on val and test set before fine-tuning once
         iter_start = self._trainer_state["current_iter"]
-        # self._evaluate_on_datapools(epoch=iter_start)
+        self._evaluate_on_datapools(epoch=iter_start)
 
         # train for given number of iters
         for epoch in range(iter_start, self._n_iters):
@@ -345,7 +348,7 @@ class SupervisedTrainer:
 
     def _setup(self):
         self._tokenizer = build_tokenizer(self._tokenizer_config)
-        self._metrics = build_metrics(self._train_eval_config.get("metrics", []))
+        self._metrics = build_metrics(self._train_eval_config.get("metrics", []), self._accelerator)
         self._samples_by_split = build_datapool(self._datapool_config)
         self._train_dataset = (
             get_datasets_for_causal(self._samples_by_split["train"])

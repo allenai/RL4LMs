@@ -2,7 +2,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers import PreTrainedModel
 import torch
 from typing import List, Dict, Tuple, Any
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 import numpy as np
 from datasets import load_metric
 from gem_metrics.msttr import MSTTR
@@ -14,11 +14,27 @@ from rl4lms.envs.text_generation.summ_metrics.summa_c import SummaCConv, SummaCZ
 from rl4lms.data_pools.task_utils.totto.eval_utils import compute_parent, compute_bleu
 from rl4lms.data_pools.custom_text_generation_pools import DailyDialog
 from tqdm import tqdm
+from accelerate import Accelerator
+from enum import Enum
 import copy
 import rouge
 
 
-class BaseMetric:
+class MetricType(Enum):
+    NON_DIST = 0   # RUNS ONLY ON MAIN PROCESS, may be sufficient for simple metrics such as Bleu, rouge etc
+    DIST = 1       # RUNS ON ALL PROCESSES, useful for metric which needs large models for its computation - such as Perplexity etc
+
+
+class BaseMetric(ABC):
+    def __init__(self, accelerator: Accelerator, dist_type: MetricType = MetricType.NON_DIST) -> None:
+        super().__init__()
+        self._accelerator = accelerator
+        self._metric_dist_type = dist_type
+    
+    @property
+    def metric_type(self):
+        return self._metric_dist_type
+
     @abstractmethod
     def compute(
         self,
@@ -44,12 +60,13 @@ class BaseMetric:
 class LearnedRewardMetric(BaseMetric):
     def __init__(
         self,
+        accelerator: Accelerator,
         model_name: str,
         label_ix: int,
         batch_size: int,
         include_prompt_for_eval: bool = True,
     ) -> None:
-        super().__init__()
+        super().__init__(accelerator)
         self._device = "cuda" if torch.cuda.is_available() else "cpu"
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
         self._tokenizer.truncation_side = "left"
@@ -105,8 +122,8 @@ class LearnedRewardMetric(BaseMetric):
 
 
 class MeteorMetric(BaseMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("meteor")
 
     def compute(
@@ -128,8 +145,8 @@ class MeteorMetric(BaseMetric):
 
 
 class RougeMetric(BaseMetric):
-    def __init__(self, use_single_ref: bool = True) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, use_single_ref: bool = True) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("rouge")
         self._use_single_ref = use_single_ref
 
@@ -161,8 +178,8 @@ class RougeMetric(BaseMetric):
 
 
 class BERTScoreMetric(BaseMetric):
-    def __init__(self, language: str) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, language: str) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("bertscore")
         self._language = language
         # since models are loaded heavily on cuda:0, use the last one to avoid memory
@@ -191,8 +208,8 @@ class BERTScoreMetric(BaseMetric):
 
 
 class BLEUMetric(BaseMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("bleu")
 
     def compute(
@@ -225,8 +242,8 @@ class BLEUMetric(BaseMetric):
 
 
 class BLEURTMetric(BaseMetric):
-    def __init__(self, config_name: str = None) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, config_name: str = None) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("bleurt", config_name=config_name)
 
     def compute(
@@ -274,7 +291,8 @@ def get_individual_scores(
 
 
 class CIDERMetric(BaseMetric):
-    def __init__(self) -> None:
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = Cider()
 
     def compute(
@@ -302,7 +320,8 @@ class CIDERMetric(BaseMetric):
 
 
 class SpiceMetric(BaseMetric):
-    def __init__(self) -> None:
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = Spice()
 
     def compute(
@@ -331,7 +350,8 @@ class SpiceMetric(BaseMetric):
 
 
 class DiversityMetrics(BaseMetric):
-    def __init__(self, window_size: int = 100) -> None:
+    def __init__(self, accelerator: Accelerator, window_size: int = 100) -> None:
+        super().__init__(accelerator)
         self._msttr_metric = MSTTR(window_size=window_size)
         self._n_gram_metric = NGramStats()
 
@@ -365,8 +385,8 @@ class SummaCZSMetric(BaseMetric):
     https://github.com/tingofurro/summac/
     """
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, **kwargs) -> None:
+        super().__init__(accelerator)
         self._scorer = SummaCZS(**kwargs)
 
     def compute(
@@ -391,8 +411,8 @@ class SummaCConvMetric(BaseMetric):
     https://github.com/tingofurro/summac/
     """
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, **kwargs) -> None:
+        super().__init__(accelerator)
         self._scorer = SummaCConv(**kwargs)
 
     def compute(
@@ -415,22 +435,17 @@ class SummaCConvMetric(BaseMetric):
 class Perplexity(BaseMetric):
     def __init__(
         self,
+        accelerator: Accelerator,
         stride: int,
         tokenizer_id: str,
         model_type: str = "causal",
         use_text_from_meta_data: bool = False,
     ) -> None:
-        super().__init__()
+        super().__init__(accelerator, dist_type=MetricType.DIST)
         self._tokenizer_id = tokenizer_id
         self._model_type = model_type
         self._stride = stride
         self._use_text_from_meta_data = use_text_from_meta_data
-
-    def get_device(self, model: PreTrainedModel):
-        try:
-            return model.transformer.first_device
-        except:
-            return model.device
 
     def compute(
         self,
@@ -441,6 +456,7 @@ class Perplexity(BaseMetric):
         model: PreTrainedModel = None,
         split_name: str = None,
     ) -> Tuple[List[float], float]:
+        
         if split_name == "train":
             return {}
 
@@ -455,17 +471,15 @@ class Perplexity(BaseMetric):
         tokenizer = AutoTokenizer.from_pretrained(self._tokenizer_id)
         encodings = tokenizer("\n\n".join(reference_texts), return_tensors="pt")
 
-        device = self.get_device(model)
-
         nlls = []
-        max_length = model.config.n_positions
+        max_length = model.module.config.n_positions
         for i in tqdm(range(0, encodings.input_ids.size(1), self._stride)):
             begin_loc = max(i + self._stride - max_length, 0)
             end_loc = min(i + self._stride, encodings.input_ids.size(1))
             trg_len = end_loc - i  # may be different from stride on last loop
 
             # run on last device
-            input_ids = encodings.input_ids[:, begin_loc:end_loc].to(device)
+            input_ids = encodings.input_ids[:, begin_loc:end_loc].to(self._accelerator.device)
             target_ids = input_ids.clone()
             target_ids[:, :-trg_len] = -100
 
@@ -487,6 +501,8 @@ class ParentToTTo:
     """
     Official version
     """
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
 
     def compute(
         self,
@@ -529,6 +545,8 @@ class BLEUToTTo:
     """
     Official version
     """
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
 
     def compute(
         self,
@@ -553,8 +571,8 @@ class BLEUToTTo:
 
 
 class RougeLMax(BaseMetric):
-    def __init__(self, **args) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, **args) -> None:
+        super().__init__(accelerator)
         self._metric = rouge.Rouge(metrics=["rouge-l"], **args)
 
     def _rouge_max_over_ground_truths(self, prediction, ground_truths):
@@ -591,8 +609,8 @@ class RougeLMax(BaseMetric):
 
 
 class SacreBLEUMetric(BaseMetric):
-    def __init__(self, **args) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, **args) -> None:
+        super().__init__(accelerator)
         self._args = args
         self._metric = load_metric("sacrebleu")
 
@@ -615,8 +633,8 @@ class SacreBLEUMetric(BaseMetric):
 
 
 class TERMetric(BaseMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("ter")
 
     def compute(
@@ -638,8 +656,8 @@ class TERMetric(BaseMetric):
 
 
 class chrFmetric(BaseMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("chrf")
 
     def compute(
@@ -661,8 +679,8 @@ class chrFmetric(BaseMetric):
 
 
 class IntentAccuracyDailyDialog(BaseMetric):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._tokenizer = AutoTokenizer.from_pretrained(
             "rajkumarrrk/roberta-daily-dialog-intent-classifier"
         )
@@ -723,43 +741,44 @@ if __name__ == "__main__":
     prompt_texts = [""]
     gen_texts = ["Hello there general kenobi", "foo bar foobar"]
     reference_texts = [["Hello there general kenobi"], ["foo bar foobar"]]
-    # metric = MeteorMetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = MeteorMetric(accelerator=None)
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = RougeMetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = RougeMetric(accelerator=None)
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = SacreBLEUMetric(tokenize="intl")
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = SacreBLEUMetric(accelerator=None, tokenize="intl")
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = TERMetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = TERMetric(accelerator=None)
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = chrFmetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = chrFmetric(accelerator=None)
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = BERTScoreMetric(language="en")
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = BERTScoreMetric(accelerator=None, language="en")
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = BLEUMetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = BLEUMetric(accelerator=None)
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = BLEURTMetric()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = BLEURTMetric(accelerator=None)
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # metric = DiversityMetrics()
-    # print(metric.compute(prompt_texts, gen_texts, reference_texts))
+    metric = DiversityMetrics(accelerator=None)
+    print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    # document = """Jeff joined Microsoft in 1992 to lead corporate developer evangelism for Windows NT. He then served as a Group Program manager in Microsoft’s Internet Business Unit. In 1998, he led the creation of SharePoint Portal Server, which became one of Microsoft’s fastest-growing businesses, exceeding $2 billion in revenues. Jeff next served as Corporate Vice President for Program Management across Office 365 Services and Servers, which is the foundation of Microsoft’s enterprise cloud leadership. He then led Corporate Strategy supporting Satya Nadella and Amy Hood on Microsoft’s mobile-first/cloud-first transformation and acquisitions. Prior to joining Microsoft, Jeff was vice president for software development for an investment firm in New York. He leads Office shared experiences and core applications, as well as OneDrive and SharePoint consumer and business services in Office 365. Jeff holds a Master of Business Administration degree from Harvard Business School and a Bachelor of Science degree in information systems and finance from New York University."""
-    # summary = "Jeff joined Microsoft in 1992 to lead the company's corporate evangelism. He then served as a Group Manager in Microsoft's Internet Business Unit. In 1998, Jeff led Sharepoint Portal Server, which became the company's fastest-growing business, surpassing $3 million in revenue. Jeff next leads corporate strategy for SharePoint and Servers which is the basis of Microsoft's cloud-first strategy. He leads corporate strategy for Satya Nadella and Amy Hood on Microsoft's mobile-first."
+    document = """Jeff joined Microsoft in 1992 to lead corporate developer evangelism for Windows NT. He then served as a Group Program manager in Microsoft’s Internet Business Unit. In 1998, he led the creation of SharePoint Portal Server, which became one of Microsoft’s fastest-growing businesses, exceeding $2 billion in revenues. Jeff next served as Corporate Vice President for Program Management across Office 365 Services and Servers, which is the foundation of Microsoft’s enterprise cloud leadership. He then led Corporate Strategy supporting Satya Nadella and Amy Hood on Microsoft’s mobile-first/cloud-first transformation and acquisitions. Prior to joining Microsoft, Jeff was vice president for software development for an investment firm in New York. He leads Office shared experiences and core applications, as well as OneDrive and SharePoint consumer and business services in Office 365. Jeff holds a Master of Business Administration degree from Harvard Business School and a Bachelor of Science degree in information systems and finance from New York University."""
+    summary = "Jeff joined Microsoft in 1992 to lead the company's corporate evangelism. He then served as a Group Manager in Microsoft's Internet Business Unit. In 1998, Jeff led Sharepoint Portal Server, which became the company's fastest-growing business, surpassing $3 million in revenue. Jeff next leads corporate strategy for SharePoint and Servers which is the basis of Microsoft's cloud-first strategy. He leads corporate strategy for Satya Nadella and Amy Hood on Microsoft's mobile-first."
 
-    # metric = SummaCZSMetric(granularity="sentence",
-    #                         use_ent=True,
-    #                         use_con=False)
-    # print(metric.compute([document], [summary], []))
+    metric = SummaCZSMetric(accelerator=None,
+                            granularity="sentence",
+                            use_ent=True,
+                            use_con=False)
+    print(metric.compute([document], [summary], []))
 
-    # metric = SummaCConvMetric(granularity="sentence")
-    # print(metric.compute([document], [summary], []))
+    metric = SummaCConvMetric(accelerator=None, granularity="sentence")
+    print(metric.compute([document], [summary], []))
 
     prompt_texts = ["1", "2"]
     gen_texts = [
@@ -770,8 +789,8 @@ if __name__ == "__main__":
         ["The dog is the boy's cat.", "The dog eats the cat of the boy."],
         ["A boy is picking apples from trees."],
     ]
-    metric = CIDERMetric()
+    metric = CIDERMetric(accelerator=None)
     print(metric.compute(prompt_texts, gen_texts, reference_texts))
 
-    metric = SpiceMetric()
+    metric = SpiceMetric(accelerator=None)
     print(metric.compute(prompt_texts, gen_texts, reference_texts))

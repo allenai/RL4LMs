@@ -16,11 +16,16 @@ from rl4lms.envs.text_generation.metric import (
     chrFmetric,
     IntentAccuracyDailyDialog,
 )
+from accelerate import Accelerator
 import numpy as np
 from typing import List, Dict, Any
 
 
 class RewardFunction(ABC):
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__()
+        self._accelerator = accelerator
+
     @abstractclassmethod
     def __call__(
         self,
@@ -49,6 +54,9 @@ class BatchedRewardFunction(ABC):
     """
     Computes rewards for several instances at once
     """
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__()
+        self._accelerator = accelerator
 
     @abstractclassmethod
     def __call__(
@@ -69,6 +77,9 @@ class BatchedRewardFunction(ABC):
 
 
 class CommonGenPenaltyShapingFunction(RewardFunction):
+    def __init__(self, accelerator: Accelerator):
+        super().__init__(accelerator)
+
     def __call__(
         self,
         current_observation: Observation,
@@ -96,6 +107,9 @@ class CommonGenPenaltyShapingFunction(RewardFunction):
 
 
 class BatchedCommonGenPenaltyShapingFunction(BatchedRewardFunction):
+    def __init__(self, accelerator: Accelerator):
+        super().__init__(accelerator)
+
     def __call__(
         self,
         prompt_texts: List[str],
@@ -124,8 +138,8 @@ class BatchedCommonGenPenaltyShapingFunction(BatchedRewardFunction):
 
 
 class MeteorRewardFunction(RewardFunction):
-    def __init__(self, shaping_fn: str = None) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, shaping_fn: str = None) -> None:
+        super().__init__(accelerator)
         self._metric = MeteorMetric()
         from rl4lms.envs.text_generation.registry import RewardFunctionRegistry
 
@@ -162,9 +176,12 @@ class MeteorRewardFunction(RewardFunction):
 
 class RougeRewardFunction(RewardFunction):
     def __init__(
-        self, rouge_type: str, shaping_fn: str = None, use_single_ref: bool = True
+        self, accelerator: Accelerator, 
+        rouge_type: str, 
+        shaping_fn: str = None, 
+        use_single_ref: bool = True
     ) -> None:
-        super().__init__()
+        super().__init__(accelerator)
         self._metric = load_metric("rouge")
         self._rouge_type = rouge_type
         from rl4lms.envs.text_generation.registry import RewardFunctionRegistry
@@ -206,8 +223,8 @@ class RougeRewardFunction(RewardFunction):
 
 
 class RougeCombined(RewardFunction):
-    def __init__(self, shaping_fn: str = None) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, shaping_fn: str = None) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("rouge")
         from rl4lms.envs.text_generation.registry import RewardFunctionRegistry
 
@@ -249,8 +266,8 @@ class RougeCombined(RewardFunction):
 
 
 class BERTScoreRewardFunction(RewardFunction):
-    def __init__(self, language: str = "en") -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, language: str = "en") -> None:
+        super().__init__(accelerator)
         self._metric = BERTScoreMetric(language)
 
     def __call__(
@@ -271,8 +288,8 @@ class BERTScoreRewardFunction(RewardFunction):
 
 
 class BLEURewardFunction(RewardFunction):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = BLEUMetric()
 
     def __call__(
@@ -293,8 +310,8 @@ class BLEURewardFunction(RewardFunction):
 
 
 class SacreBleu(RewardFunction):
-    def __init__(self, **args) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, **args) -> None:
+        super().__init__(accelerator)
         self._metric = load_metric("sacrebleu")
         self._args = args
 
@@ -318,12 +335,12 @@ class SacreBleu(RewardFunction):
 
 class SpiderRewardFunction(BatchedRewardFunction):
     def __init__(
-        self, spice_coeff: float, cider_coeff: float, shaping_fn: str = None
+        self, accelerator: Accelerator, spice_coeff: float, cider_coeff: float, shaping_fn: str = None
     ) -> None:
         """
         Spice + Cider
         """
-        super().__init__()
+        super().__init__(accelerator)
         self._spice_metric = SpiceMetric()
         self._cider_metric = CIDERMetric()
         self._spice_coeff = spice_coeff
@@ -389,15 +406,19 @@ class SpiderRewardFunction(BatchedRewardFunction):
 
 class LearnedRewardFunction(RewardFunction):
     def __init__(
-        self, model_name: str, label_ix: int, include_prompt_for_eval: bool = True
+        self, 
+        accelerator: Accelerator, 
+        model_name: str, 
+        label_ix: int, 
+        include_prompt_for_eval: bool = True
     ) -> None:
-        super().__init__()
-        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        super().__init__(accelerator)
         self._metric_tokenizer = AutoTokenizer.from_pretrained(model_name)
         self._metric_tokenizer.truncation_side = "left"
         self._metric_model = AutoModelForSequenceClassification.from_pretrained(
             model_name
-        ).to(self._device)
+        )
+        self._metric_model = self._accelerator.prepare(self._metric_model)
         self._label_ix = label_ix
         self._include_prompt_for_eval = include_prompt_for_eval
 
@@ -422,8 +443,8 @@ class LearnedRewardFunction(RewardFunction):
                     generated_text, return_tensors="pt", truncation=True, padding=True
                 )
                 outputs = self._metric_model(
-                    input_ids=encoded.input_ids.to(self._device),
-                    attention_mask=encoded.attention_mask.to(self._device),
+                    input_ids=encoded.input_ids.to(self._accelerator.device),
+                    attention_mask=encoded.attention_mask.to(self._accelerator.device),
                 )
                 scores = torch.softmax(outputs.logits.flatten(), dim=0)
                 score = scores[self._label_ix].item()
@@ -433,15 +454,19 @@ class LearnedRewardFunction(RewardFunction):
 
 class LearnedBatchedRewardFunction(BatchedRewardFunction):
     def __init__(
-        self, model_name: str, label_ix: int, include_prompt_for_eval: bool = True
+        self,  
+        accelerator: Accelerator, 
+        model_name: str, 
+        label_ix: int, 
+        include_prompt_for_eval: bool = True
     ) -> None:
-        super().__init__()
-        self._device = "cpu"
+        super().__init__(accelerator)
         self._metric_tokenizer = AutoTokenizer.from_pretrained(model_name)
         self._metric_tokenizer.truncation_side = "left"
         self._metric_model = AutoModelForSequenceClassification.from_pretrained(
             model_name
-        ).to(self._device)
+        )
+        self._metric_model = self._accelerator.prepare(self._metric_model)
         self._label_ix = label_ix
         self._include_prompt_for_eval = include_prompt_for_eval
 
@@ -473,8 +498,8 @@ class LearnedBatchedRewardFunction(BatchedRewardFunction):
                 gens, return_tensors="pt", truncation=True, padding=True
             )
             outputs = self._metric_model(
-                input_ids=encoded.input_ids.to(self._device),
-                attention_mask=encoded.attention_mask.to(self._device),
+                input_ids=encoded.input_ids.to(self._accelerator.device),
+                attention_mask=encoded.attention_mask.to(self._accelerator.device),
             )
             scores = torch.softmax(outputs.logits, dim=1)
             scores = scores[:, self._label_ix].flatten().cpu()
@@ -484,8 +509,8 @@ class LearnedBatchedRewardFunction(BatchedRewardFunction):
 
 
 class BLEURTRewardFunction(RewardFunction):
-    def __init__(self, checkpoint: str = None):
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, checkpoint: str = None):
+        super().__init__(accelerator)
         self._metric = load_metric("bleurt", checkpoint=checkpoint)
 
     def __call__(
@@ -512,8 +537,8 @@ class PARENTRewardFunction(RewardFunction):
     PARENT F1 score as the reward
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = ParentToTTo()
 
     def __call__(
@@ -534,8 +559,8 @@ class PARENTRewardFunction(RewardFunction):
 
 
 class RougeLMaxRewardFunction(RewardFunction):
-    def __init__(self, **args) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator, **args) -> None:
+        super().__init__(accelerator)
         self._metric = RougeLMax(**args)
 
     def __call__(
@@ -557,8 +582,8 @@ class RougeLMaxRewardFunction(RewardFunction):
 
 
 class TER(RewardFunction):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = TERMetric()
 
     def __call__(
@@ -582,8 +607,8 @@ class TER(RewardFunction):
 
 
 class chrF(RewardFunction):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, accelerator: Accelerator) -> None:
+        super().__init__(accelerator)
         self._metric = chrFmetric()
 
     def __call__(
@@ -607,9 +632,9 @@ class chrF(RewardFunction):
 
 class IntentAccuracy(BatchedRewardFunction):
     def __init__(
-        self, shape: bool = True, intent_coeff: float = 1.0, auto_coeff: float = 1.0
+        self, accelerator: Accelerator, shape: bool = True, intent_coeff: float = 1.0, auto_coeff: float = 1.0
     ) -> None:
-        super().__init__()
+        super().__init__(accelerator)
         self._metric = None
         self._shape = shape
         self._intent_coeff = intent_coeff
@@ -666,29 +691,29 @@ if __name__ == "__main__":
         None, None, None, None, None, predictions, references, None, None, None, None
     )
 
-    reward_fn = MeteorRewardFunction()
+    reward_fn = MeteorRewardFunction(accelerator=None)
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = chrF()
+    reward_fn = chrF(accelerator=None)
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = RougeCombined()
+    reward_fn = RougeCombined(accelerator=None)
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = RougeRewardFunction(rouge_type="rouge1")
+    reward_fn = RougeRewardFunction(accelerator=None,rouge_type="rouge1")
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = RougeRewardFunction(rouge_type="rouge2")
+    reward_fn = RougeRewardFunction(accelerator=None, rouge_type="rouge2")
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = RougeRewardFunction(rouge_type="rougeL")
+    reward_fn = RougeRewardFunction(accelerator=None, rouge_type="rougeL")
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = BERTScoreRewardFunction(language="en")
+    reward_fn = BERTScoreRewardFunction(accelerator=None, language="en")
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = BLEURewardFunction()
+    reward_fn = BLEURewardFunction(accelerator=None)
     print(reward_fn(None, None, observation, True))
 
-    reward_fn = BLEURTRewardFunction()
+    reward_fn = BLEURTRewardFunction(accelerator=None)
     print(reward_fn(None, None, observation, True))

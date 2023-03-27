@@ -5,7 +5,7 @@ tokenizer:
   pad_token_as_eos_token: True
 
 reward_fn:
-  id: learned_reward
+  id: learned_batched_reward
   args: 
     model_name: lvwerra/distilbert-imdb
     label_ix: 1
@@ -48,7 +48,7 @@ train_evaluation:
   eval_batch_size: 256
   n_iters: 50
   eval_every: 10
-  save_every: 1
+  save_every: 51
   metrics:
     - id: learned_reward
       args: 

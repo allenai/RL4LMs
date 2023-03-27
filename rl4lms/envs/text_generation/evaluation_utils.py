@@ -27,7 +27,7 @@ def evaluate_on_samples(
 ):  
 
     # tracker
-    tracker.log_info("DISTRIBUTED EVALUATION STARTED")
+    tracker.log_info("DISTRIBUTED INFERENCE STARTED")
 
 
     # wait for everyone
@@ -35,7 +35,7 @@ def evaluate_on_samples(
 
     # generate text by batch
     generations_by_sample_ids = {}
-    for batch in tqdm(dataloader, desc="DIST EVALUATION", disable=not accelerator.is_local_main_process):
+    for batch in tqdm(dataloader, desc="DIST INFERENCE", disable=not accelerator.is_local_main_process):
         batch_sample_ids, batch_generated_texts = generate_text(
             policy, tokenizer, batch, accelerator, max_prompt_length, dt_control_token, gen_kwargs
         )
@@ -44,7 +44,7 @@ def evaluate_on_samples(
             generations_by_sample_ids[sample_id] = gen_text
 
     # tracker
-    tracker.log_info("DISTRIBUTED EVALUATION FINISHED")
+    tracker.log_info("DISTRIBUTED INFERENCE FINISHED")
 
     if accelerator.is_main_process:
         # compute metrics
@@ -95,7 +95,7 @@ def compute_metrics(dataloader: DataLoader,
                 all_generated_texts,
                 all_ref_texts,
                 all_meta_infos,
-                accelerator.unwrap_model(policy).get_language_model(),
+                accelerator.unwrap_model(accelerator.unwrap_model(policy).get_language_model()),
                 split_name,
             )
 
