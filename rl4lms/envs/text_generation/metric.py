@@ -22,7 +22,7 @@ import rouge
 
 class MetricType(Enum):
     NON_DIST = 0   # RUNS ONLY ON MAIN PROCESS, may be sufficient for simple metrics such as Bleu, rouge etc
-    DIST = 1       # RUNS ON ALL PROCESSES, useful for metric which needs large models for its computation - such as Perplexity etc
+    DIST = 1       # RUNS ON ALL PROCESSES and results are aggregated, useful for metric which needs large models for its computation - such as Perplexity etc
 
 
 class BaseMetric(ABC):

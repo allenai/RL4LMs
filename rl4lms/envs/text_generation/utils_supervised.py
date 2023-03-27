@@ -55,12 +55,6 @@ def evaluate_on_samples(model: PreTrainedModel,
     # tracker
     tracker.log_info("DISTRIBUTED INFERENCE FINISHED")
 
-
-    # we need to be able to compute metrics differently here
-    # two types of metrics
-    # 1) one non-distributed which runs only on main process
-    # 2) distributed which runs on all processes  - basically this is used for perplexity computations
-
     # compute metrics
     sample_predictions_dict, corpus_level_metrics = compute_metrics(dataloader, 
                                                                     metrics, 
@@ -162,6 +156,7 @@ def generate(model: PreTrainedModel,
 
 class EvalCallack(TrainerCallback):
     def __init__(self, val_dataloader: DataLoader,
+                 test_dataloader: DataLoader,
                  generation_kwargs: Dict[str, Any],
                  eval_batch_size: int,
                  tokenizer: PreTrainedTokenizer,
@@ -170,6 +165,7 @@ class EvalCallack(TrainerCallback):
                  tracker: Tracker,
                  accelerator: Accelerator):
         self._val_dataloader = val_dataloader
+        self._test_dataloader = test_dataloader
         self._gen_kwargs = generation_kwargs
         self._tokenizer = tokenizer
         self._metrics = metrics
@@ -179,21 +175,29 @@ class EvalCallack(TrainerCallback):
         self._accelerator = accelerator
 
     def on_log(self, args, state, control, logs=None, **kwargs):
+        splits_to_evaluate = {
+            "val": self._val_dataloader
+        }
+        if int(state.epoch) == 1:
+            splits_to_evaluate["test"] = self._test_dataloader
+     
         print("Evaluation")
         model = kwargs.pop("model")
         #model = self._accelerator.prepare(model)
         batch = self._tokenizer(["random text"], return_tensors="pt").to(self._accelerator.device)
         outputs = model(**batch)
-        evaluate_on_samples(model,
-                            self._tokenizer,
-                            self._val_dataloader,
-                            self._max_prompt_length,
-                            self._metrics,
-                            state.epoch,
-                            "val",
-                            tracker=self._tracker,
-                            generation_kwargs=self._gen_kwargs,
-                            accelerator=self._accelerator)
+
+        for split, dataloader in splits_to_evaluate.items():
+            evaluate_on_samples(model,
+                                self._tokenizer,
+                                dataloader,
+                                self._max_prompt_length,
+                                self._metrics,
+                                state.epoch,
+                                split,
+                                tracker=self._tracker,
+                                generation_kwargs=self._gen_kwargs,
+                                accelerator=self._accelerator)
 
 
 def get_datasets_for_causal(train_datapool: TextGenPool):
@@ -282,7 +286,7 @@ def compute_metrics(dataloader: DataLoader,
     n_samples = len(all_sample_ids)
     if metrics is not None:
         for metric in metrics:
-            metric_dict = compute_single_metric(metric, all_prompt_texts, 
+            metric_dict = compute_single_metric(metric, all_sample_ids, all_prompt_texts, 
                                                 all_generated_texts, all_ref_texts,
                                                 all_meta_infos, model,
                                                 split_name, accelerator)
@@ -313,7 +317,6 @@ def compute_metrics(dataloader: DataLoader,
         for metric_key, sample_scores in sample_scores_by_metric.items():
             sample_prediction[metric_key] = sample_scores[ix]
         sample_predictions_dict.append(sample_prediction)
-
 
     return sample_predictions_dict, corpus_level_metrics
 

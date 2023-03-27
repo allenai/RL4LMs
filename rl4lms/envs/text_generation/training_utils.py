@@ -401,6 +401,7 @@ class SupervisedTrainer:
 
         self._eval_callback = EvalCallack(
             self._dataloaders["val"],
+            self._dataloaders["test"],
             self._gen_kwargs,
             self._eval_batch_size,
             self._tokenizer,
@@ -441,7 +442,7 @@ class SupervisedTrainer:
         self._tracker.log_info("TRAINING FINISHED")
 
         # finally evaluate on val and test samples
-        self._evaluate_on_datapools(epoch=self._train_args.num_train_epochs)
+        #self._evaluate_on_datapools(epoch=self._train_args.num_train_epochs)
 
         # save model here - we save only the language model
         if self._tracker is not None:
