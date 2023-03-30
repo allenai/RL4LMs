@@ -63,6 +63,7 @@ from rl4lms.envs.text_generation.reward import (
     BLEURTRewardFunction,
     CommonGenPenaltyShapingFunction,
     LearnedRewardFunction,
+    LearnedBatchedRewardFunction,
     MeteorRewardFunction,
     PARENTRewardFunction,
     RewardFunction,
@@ -115,7 +116,7 @@ class RewardFunctionRegistry:
     _registry = {
         "increasing_numbers": RewardIncreasingNumbers,
         "sentences_with_dates": RewardSentencesWithDates,
-        "learned_reward": LearnedRewardFunction,
+        "learned_reward": LearnedBatchedRewardFunction,
         "meteor": MeteorRewardFunction,
         "rouge": RougeRewardFunction,
         "bert_score": BERTScoreRewardFunction,

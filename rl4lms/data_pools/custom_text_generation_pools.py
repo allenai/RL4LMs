@@ -211,15 +211,15 @@ class IMDB(TextGenPool):
     IMDB Dataset for sentiment continuation task
     """
     @classmethod
-    def prepare(cls, split: str):
-        dataset = load_dataset("imdb")
+    def prepare(cls, split: str, seed: int):
+        dataset = load_dataset("imdb", ignore_verifications=True)
         if split in ["train", "val"]:
-            dataset_split = dataset["train"].shuffle()
+            dataset_split = dataset["train"].shuffle(seed)
             train_ratio = 0.8
             train_index = int(len(dataset_split) * train_ratio)
             dataset_split = dataset_split[:train_index] if split == "train" else dataset_split[train_index:]
         else:
-            dataset_split = dataset[split].shuffle()
+            dataset_split = dataset[split].shuffle(seed)
             dataset_split = dataset_split[:5000]
 
         samples = []
@@ -585,6 +585,6 @@ class DailyDialog(TextGenPool):
 if __name__ == "__main__":
     from transformers import AutoTokenizer
     import numpy as np
-    dp = DailyDialog.prepare("val", 5)
+    dp = IMDB.prepare("test", 42)
     print(dp[0])
     
