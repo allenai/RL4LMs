@@ -455,9 +455,9 @@ class LearnedRewardFunction(RewardFunction):
 class LearnedBatchedRewardFunction(BatchedRewardFunction):
     def __init__(
         self,  
-        accelerator: Accelerator, 
-        model_name: str, 
-        label_ix: int, 
+        accelerator: Accelerator,
+        model_name: str,
+        label_ix: int,
         include_prompt_for_eval: bool = True
     ) -> None:
         super().__init__(accelerator)

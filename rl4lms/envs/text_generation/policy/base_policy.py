@@ -169,9 +169,19 @@ class LMActorCriticPolicy(BasePolicy):
         return optimizer
 
     def forward(self, *args, **kwargs):
+
+        forward_lm_only = kwargs.pop("forward_lm_only", False)
+        if forward_lm_only:
+            return self.foward_language_model(*args, **kwargs)
+
         # dummy just to comply with base policy
         return self.evaluate_actions(*args, **kwargs)
 
+    def foward_language_model(self, *args, **kwargs):
+        return self._policy_model(*args, **kwargs)
+
+    def get_model_max_length(self):
+        return self._policy_model.config.n_positions
 
     @staticmethod
     def _predict(
@@ -182,7 +192,7 @@ class LMActorCriticPolicy(BasePolicy):
 
     def is_encoder_decoder(self, model: PreTrainedModel):
         return unwrap_model(model).config.is_encoder_decoder
-    
+
     def generate(
         self,
         tokenizer: AutoTokenizer,

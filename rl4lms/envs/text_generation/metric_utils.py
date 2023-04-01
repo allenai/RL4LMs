@@ -80,7 +80,7 @@ def compute_single_metric(metric: BaseMetric,
     if metric.metric_type == MetricType.NON_DIST and accelerator.is_main_process:
         metric_results = metric.compute(prompts, gen_texts, ref_texts, meta_infos, model, split_name)
         return metric_results
-        
+
     elif metric.metric_type == MetricType.DIST:
         dataset = GenerationDataset(sample_ids, prompts, gen_texts, ref_texts, meta_infos)
         batch_size = int(len(dataset) / accelerator.num_processes)
@@ -91,13 +91,13 @@ def compute_single_metric(metric: BaseMetric,
         sample_level_scores_by_sample_id = {sample_id: {} for sample_id in sample_ids}
         for batch_sample_ids, batch_prompts, batch_gen_texts, batch_ref_texts, batch_meta_infos in dataloader:
             metric_dict = metric.compute(batch_prompts, batch_gen_texts, batch_ref_texts, batch_meta_infos, model, split_name)
-            
+
             # gather corpus level scores
             corpus_level_scores = {key: torch.tensor([value[1]]).to(accelerator.device) for key, value in metric_dict.items()}
             gathered_corpus_level_scores = accelerator.gather_for_metrics(corpus_level_scores)
             for key, value in gathered_corpus_level_scores.items():
                 all_corpus_level_scores[key].extend(value.tolist())
-            
+
             # gather sample level scores
             batch_sample_ids = torch.tensor(batch_sample_ids).to(accelerator.device)
             gathered_sample_ids = accelerator.gather_for_metrics(batch_sample_ids).tolist()
@@ -124,4 +124,3 @@ def compute_single_metric(metric: BaseMetric,
         return final_metrics
     else:
         return {}
-

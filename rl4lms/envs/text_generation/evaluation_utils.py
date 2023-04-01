@@ -10,7 +10,7 @@ import torch
 from rl4lms.data_pools.custom_text_generation_pools import Sample
 from rl4lms.envs.text_generation.logging_utils import Tracker
 from rl4lms.envs.text_generation.metric import BaseMetric
-
+from rl4lms.envs.text_generation.metric_utils import compute_single_metric
 
 def evaluate_on_samples(
     policy: BasePolicy,
@@ -24,11 +24,12 @@ def evaluate_on_samples(
     tracker: Tracker = None,
     dt_control_token: str = "",
     gen_kwargs: Dict[str, Any] = None,
-):  
+):
+    # put in eval mode
+    policy.eval()
 
     # tracker
     tracker.log_info("DISTRIBUTED INFERENCE STARTED")
-
 
     # wait for everyone
     accelerator.wait_for_everyone()
@@ -46,21 +47,22 @@ def evaluate_on_samples(
     # tracker
     tracker.log_info("DISTRIBUTED INFERENCE FINISHED")
 
-    if accelerator.is_main_process:
-        # compute metrics
-        sample_predictions_dict, corpus_level_metrics = compute_metrics(dataloader, 
-                                                                        metrics, 
-                                                                        generations_by_sample_ids, 
-                                                                        split_name, 
-                                                                        policy,
-                                                                        accelerator)
+    # compute metrics
+    sample_predictions_dict, corpus_level_metrics = compute_metrics(dataloader,
+                                                                    metrics,
+                                                                    generations_by_sample_ids,
+                                                                    split_name,
+                                                                    policy,
+                                                                    accelerator)
 
-        if tracker is not None:
-            # log the entire predictions
-            tracker.log_predictions(epoch, split_name, sample_predictions_dict)
-            # log the corpus level scores
-            tracker.log_metrics(epoch, split_name, corpus_level_metrics)
+    if tracker is not None:
+        # log the entire predictions
+        tracker.log_predictions(epoch, split_name, sample_predictions_dict)
+        # log the corpus level scores
+        tracker.log_metrics(epoch, split_name, corpus_level_metrics)
 
+    # back to train mode
+    policy.train()
 
 
 def compute_metrics(dataloader: DataLoader,
@@ -83,21 +85,21 @@ def compute_metrics(dataloader: DataLoader,
         all_meta_infos.append(sample.meta_data)
         all_sample_ids.append(sample.id)
 
-
     # gather metrics
     corpus_level_metrics = {}
     sample_scores_by_metric = {}
     n_samples = len(all_sample_ids)
     if metrics is not None:
         for metric in metrics:
-            metric_dict = metric.compute(
-                all_prompt_texts,
-                all_generated_texts,
-                all_ref_texts,
-                all_meta_infos,
-                accelerator.unwrap_model(accelerator.unwrap_model(policy).get_language_model()),
-                split_name,
-            )
+            metric_dict = compute_single_metric(metric,
+                                                all_sample_ids,
+                                                all_prompt_texts,
+                                                all_generated_texts,
+                                                all_ref_texts,
+                                                all_meta_infos,
+                                                policy,
+                                                split_name,
+                                                accelerator)
 
             for metric_key, (sample_scores, corpus_score) in metric_dict.items():
                 if sample_scores is None:
@@ -125,7 +127,6 @@ def compute_metrics(dataloader: DataLoader,
         for metric_key, sample_scores in sample_scores_by_metric.items():
             sample_prediction[metric_key] = sample_scores[ix]
         sample_predictions_dict.append(sample_prediction)
-
 
     return sample_predictions_dict, corpus_level_metrics
 

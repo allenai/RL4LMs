@@ -13,6 +13,7 @@ from gem_metrics.texts import Predictions
 from rl4lms.envs.text_generation.summ_metrics.summa_c import SummaCConv, SummaCZS
 from rl4lms.data_pools.task_utils.totto.eval_utils import compute_parent, compute_bleu
 from rl4lms.data_pools.custom_text_generation_pools import DailyDialog
+from rl4lms.envs.text_generation.policy.base_policy import BasePolicy
 from tqdm import tqdm
 from accelerate import Accelerator
 from enum import Enum
@@ -66,13 +67,11 @@ class LearnedRewardMetric(BaseMetric):
         batch_size: int,
         include_prompt_for_eval: bool = True,
     ) -> None:
-        super().__init__(accelerator)
-        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        super().__init__(accelerator, MetricType.DIST)
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
         self._tokenizer.truncation_side = "left"
-        self._model = AutoModelForSequenceClassification.from_pretrained(model_name).to(
-            self._device
-        )
+        self._model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self._model = self._accelerator.prepare(self._model)
         self._label_ix = label_ix
         self._batch_size = batch_size
         self._include_prompt_for_eval = include_prompt_for_eval
@@ -107,8 +106,8 @@ class LearnedRewardMetric(BaseMetric):
             )
             with torch.no_grad():
                 outputs = self._model(
-                    input_ids=encoded.input_ids.to(self._device),
-                    attention_mask=encoded.attention_mask.to(self._device),
+                    input_ids=encoded.input_ids.to(self._accelerator.device),
+                    attention_mask=encoded.attention_mask.to(self._accelerator.device),
                 )
                 scores = torch.softmax(outputs.logits, dim=1)
                 scores = scores[:, self._label_ix].tolist()
@@ -456,7 +455,7 @@ class Perplexity(BaseMetric):
         model: PreTrainedModel = None,
         split_name: str = None,
     ) -> Tuple[List[float], float]:
-        
+
         if split_name == "train":
             return {}
 
@@ -472,19 +471,27 @@ class Perplexity(BaseMetric):
         encodings = tokenizer("\n\n".join(reference_texts), return_tensors="pt")
 
         nlls = []
-        max_length = model.module.config.n_positions
+
+        # get model max length
+        if isinstance(model.module, BasePolicy):
+            max_length = model.get_model_max_length()
+        else:
+            max_length = model.module.config.n_positions
         for i in tqdm(range(0, encodings.input_ids.size(1), self._stride)):
             begin_loc = max(i + self._stride - max_length, 0)
             end_loc = min(i + self._stride, encodings.input_ids.size(1))
             trg_len = end_loc - i  # may be different from stride on last loop
 
-            # run on last device
+            # get inputs and target ids
             input_ids = encodings.input_ids[:, begin_loc:end_loc].to(self._accelerator.device)
             target_ids = input_ids.clone()
             target_ids[:, :-trg_len] = -100
 
             with torch.no_grad():
-                outputs = model(input_ids, labels=target_ids)
+                if isinstance(model.module, BasePolicy):
+                    outputs = model(input_ids, labels=target_ids, forward_lm_only=True)
+                else:
+                    outputs = model(input_ids, labels=target_ids)
                 neg_log_likelihood = outputs[0] * trg_len
 
             nlls.append(neg_log_likelihood)

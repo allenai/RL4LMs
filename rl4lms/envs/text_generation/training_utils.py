@@ -227,7 +227,7 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
         self._prepare_accelerate()
 
     def _prepare_accelerate(self):
-        self._alg.policy = self._accelerator.prepare(self._alg.policy)
+         # create optimizer first
         optimizer = self._alg.policy.setup_optimizer()
 
         # prepare dataloaders
@@ -238,15 +238,14 @@ class OnPolicyTrainer(TrainerWarmStartMixin):
 
         # prepare policy, optimizer and dataloader
         (
+            self._alg.policy,
             self._alg.optimizer,
             self._dataloaders["val"],
             self._dataloaders["test"],
-        ) = self._accelerator.prepare(optimizer,
-                                     self._dataloaders["val"],
-                                     self._dataloaders["test"])
-
-
-
+        ) = self._accelerator.prepare(self._alg.policy,
+                                      optimizer,
+                                      self._dataloaders["val"],
+                                      self._dataloaders["test"])
 
     def _evaluate_on_datapools(self, epoch: int, splits: List[str] = ["val", "test"]):
         # need to do this for FSDP
