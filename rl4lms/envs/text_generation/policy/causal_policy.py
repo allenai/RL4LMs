@@ -103,6 +103,10 @@ class CausalLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin):
             input_ids, **model_kwargs
         )
 
+        """ Make sure to use the configuration in the configuration file"""
+        if model_inputs.get("use_cache", None) is None:
+            model_inputs['use_cache'] = self._generation_kwargs.get("use_cache", None)
+
         if self._apply_model_parallel and unwrap_model(model).is_parallelizable:
             # if model is in parallel mode, move the tensors to the first device
             model_inputs = {
