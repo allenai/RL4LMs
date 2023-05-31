@@ -97,7 +97,8 @@ class TrainerWarmStartMixin:
         except:
             os.makedirs(tracker.checkpoint_base_path)
             checkpoints = os.listdir(tracker.checkpoint_base_path)
-
+            
+        checkpoints = [cp for cp in checkpoints if "_" in cp]
         if len(checkpoints) == 0:
             return None, None
 
