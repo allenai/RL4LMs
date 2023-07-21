@@ -13,7 +13,8 @@ reward_fn:
 
 datapool:
   id: imdb
-  args: {}
+  args:
+    seed: 42
 
 env:
   n_envs: 10
@@ -33,7 +34,7 @@ alg:
     
   kl_div:
     coeff: 0.1
-    target_kl: 0.5
+    target_kl: 0.1
 
   policy:
     id: causal_lm_actor_critic_policy
@@ -49,7 +50,7 @@ train_evaluation:
   eval_batch_size: 256
   n_iters: 50
   eval_every: 10
-  save_every: 1
+  save_every: 10
   metrics:
     - id: learned_reward
       args: 

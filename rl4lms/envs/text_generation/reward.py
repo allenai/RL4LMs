@@ -315,6 +315,58 @@ class SacreBleu(RewardFunction):
             return metric_results["score"] / 100
         return 0
 
+class LearnedBatchedRewardFunction(BatchedRewardFunction):
+    def __init__(
+        self, model_name: str, label_ix: int, include_prompt_for_eval: bool = True
+    ) -> None:
+        super().__init__()
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._metric_tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self._metric_tokenizer.truncation_side = "left"
+        self._metric_model = AutoModelForSequenceClassification.from_pretrained(
+            model_name
+        ).to(self._device)
+        self._label_ix = label_ix
+        self._include_prompt_for_eval = include_prompt_for_eval
+
+    def __call__(
+        self,
+        prompt_texts: List[str],
+        gen_texts: List[str],
+        ref_texts: List[List[str]],
+        dones: List[bool],
+        meta_infos: List[Dict[str, Any]] = None,
+    ) -> List[float]:
+
+        # collect generations at done steps
+        gens = []
+        indices_with_done = []
+        rewards = torch.zeros(len(prompt_texts))
+        for ix, (prompt, gen, ref, done) in enumerate(
+            zip(prompt_texts, gen_texts, ref_texts, dones)
+        ):
+            if done:
+                generated_text = prompt if self._include_prompt_for_eval else ""
+                generated_text += gen
+                gens.append(generated_text)
+                indices_with_done.append(ix)
+
+        # compute rewards at once
+        with torch.no_grad():
+            encoded = self._metric_tokenizer(
+                gens, return_tensors="pt", truncation=True, padding=True
+            )
+            outputs = self._metric_model(
+                input_ids=encoded.input_ids.to(self._device),
+                attention_mask=encoded.attention_mask.to(self._device),
+            )
+            scores = torch.softmax(outputs.logits, dim=1)
+            scores = scores[:, self._label_ix].flatten().cpu()
+            rewards[indices_with_done] = scores
+
+        return rewards
+
+
 
 class SpiderRewardFunction(BatchedRewardFunction):
     def __init__(
