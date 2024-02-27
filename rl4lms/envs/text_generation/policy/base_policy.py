@@ -5,8 +5,8 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import torch
-from gym.spaces import Discrete
-from gym.spaces.dict import Dict as DictSpace
+from gymnasium.spaces import Discrete
+from gymnasium.spaces.dict import Dict as DictSpace
 from stable_baselines3.common.distributions import CategoricalDistribution
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import Schedule, TensorDict

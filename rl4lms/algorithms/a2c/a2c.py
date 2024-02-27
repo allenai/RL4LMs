@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional, Type, Union
 
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from torch.nn import functional as F
 import numpy as np
 

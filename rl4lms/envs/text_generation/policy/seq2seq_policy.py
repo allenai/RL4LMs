@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional, List, Union
 import torch
-from gym.spaces import Discrete
-from gym.spaces.dict import Dict as DictSpace
+from gymnasium.spaces import Discrete
+from gymnasium.spaces.dict import Dict as DictSpace
 from torch import nn
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from stable_baselines3.common.distributions import CategoricalDistribution

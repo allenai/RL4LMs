@@ -4,12 +4,14 @@ bert-score
 BLEURT @ git+https://github.com/google-research/bleurt.git@c6f2375c7c178e1480840cf27cb9e2af851394f9
 datasets
 gem-metrics @ git+https://github.com/GEM-benchmark/GEM-metrics.git@431a8174bd6b3637e8d6118bfad2983e39e99733
-gym
+#gym
+gymnasium
 jsonlines
 nltk
 pandas
 rich
-stable-baselines3==1.5.1a5
+#stable-baselines3==1.5.1a5
+stable-baselines3
 torch
 torchvision
 tqdm

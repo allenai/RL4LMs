@@ -1,7 +1,7 @@
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import gym
+import gymnasium
 import numpy as np
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecMonitor, is_vecenv_wrapped
@@ -12,7 +12,7 @@ from rl4lms.algorithms.nlpo import NLPO
 
 def evaluate_policy(  # noqa: C901
     model: NLPO,
-    env: Union[gym.Env, VecEnv],
+    env: Union[gymnasium.Env, VecEnv],
     n_eval_episodes: int = 10,
     deterministic: bool = True,
     render: bool = False,
@@ -38,7 +38,7 @@ def evaluate_policy(  # noqa: C901
         wrapper before anything else.
 
     :param model: The RL agent you want to evaluate.
-    :param env: The gym environment. In the case of a ``VecEnv``
+    :param env: The gymnasium environment. In the case of a ``VecEnv``
         this must contain only one environment.
     :param n_eval_episodes: Number of episode to evaluate the agent
     :param deterministic: Whether to use deterministic or stochastic actions

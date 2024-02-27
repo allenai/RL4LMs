@@ -2,9 +2,9 @@ from cmath import inf
 from typing import Dict, Tuple, Optional, List
 
 import torch
-from gym import Env, spaces
-from gym.spaces.dict import Dict as DictSpace
-from gym.spaces.discrete import Discrete
+from gymnasium import Env, spaces
+from gymnasium.spaces.dict import Dict as DictSpace
+from gymnasium.spaces.discrete import Discrete
 from rl4lms.data_pools.text_generation_pool import Sample
 from rl4lms.envs.text_generation.reward import BatchedRewardFunction, RewardFunction
 from rl4lms.envs.text_generation.observation import Observation
