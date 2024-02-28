@@ -57,7 +57,7 @@ logger = logging.get_logger(__name__)
 
 
 def torch_int_div(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    return tensor.div(a, b, rounding_mode="floor")
+    return torch.div(a, b, rounding_mode="floor")
 
 
 @dataclass
