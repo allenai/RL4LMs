@@ -533,6 +533,8 @@ class GenerationMixinWithRawScores:
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
         encoder_kwargs["return_dict"] = True
         encoder_kwargs[model_input_name] = inputs_tensor
+        if "input_ids" in encoder_kwargs:
+            encoder_kwargs["input_ids"] = encoder_kwargs["input_ids"].long()
         model_kwargs["encoder_outputs"]: ModelOutput = encoder(
             **encoder_kwargs)
 
