@@ -141,7 +141,7 @@ class TextGenEnv(Env):
             "meta_info": previous_obs.meta_info,
         }
 
-        return self.__current_obs.to_dict(), reward, done, info
+        return self.__current_obs.to_dict(), reward, done, False, info
 
     def reset(self, sample: Sample = None, **kwargs) -> Dict[str, torch.tensor]:
         """
