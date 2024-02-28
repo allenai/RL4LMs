@@ -143,7 +143,7 @@ class TextGenEnv(Env):
 
         return self.__current_obs.to_dict(), reward, done, info
 
-    def reset(self, sample: Sample = None) -> Dict[str, torch.tensor]:
+    def reset(self, sample: Sample = None, **kwargs) -> Dict[str, torch.tensor]:
         """
         Resets the environment and starts a new episode
         """
@@ -167,7 +167,7 @@ class TextGenEnv(Env):
         self.__time_step = 0
 
         dict_observation = self.__current_obs.to_dict()
-        return dict_observation
+        return dict_observation, {}
 
     def render(self):
         pass
