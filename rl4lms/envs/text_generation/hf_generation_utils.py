@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from transformers.generation_utils import GenerationMixin
+from transformers import GenerationMixin
 import inspect
 import warnings
 from dataclasses import dataclass
@@ -24,9 +24,9 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
-from transformers.generation_beam_constraints import Constraint, DisjunctiveConstraint, PhrasalConstraint
-from transformers.generation_beam_search import BeamScorer, BeamSearchScorer, ConstrainedBeamSearchScorer
-from transformers.generation_logits_process import (
+from transformers.generation.beam_constraints import Constraint, DisjunctiveConstraint, PhrasalConstraint
+from transformers.generation.beam_search import BeamScorer, BeamSearchScorer, ConstrainedBeamSearchScorer
+from transformers.generation.logits_process import (
     EncoderNoRepeatNGramLogitsProcessor,
     ExponentialDecayLengthPenalty,
     ForcedBOSTokenLogitsProcessor,
@@ -44,18 +44,20 @@ from transformers.generation_logits_process import (
     TopPLogitsWarper,
     TypicalLogitsWarper,
 )
-from transformers.generation_stopping_criteria import (
+from transformers.generation.stopping_criteria import (
     MaxLengthCriteria,
     MaxTimeCriteria,
     StoppingCriteria,
     StoppingCriteriaList,
     validate_stopping_criteria,
 )
-from transformers.pytorch_utils import torch_int_div
 from transformers.utils import ModelOutput, logging
 
-
 logger = logging.get_logger(__name__)
+
+
+def torch_int_div(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    return torch.div(a, b, rounding_mode="floor")
 
 
 @dataclass
@@ -531,6 +533,8 @@ class GenerationMixinWithRawScores:
         model_input_name = model_input_name if model_input_name is not None else self.main_input_name
         encoder_kwargs["return_dict"] = True
         encoder_kwargs[model_input_name] = inputs_tensor
+        if "input_ids" in encoder_kwargs:
+            encoder_kwargs["input_ids"] = encoder_kwargs["input_ids"].long()
         model_kwargs["encoder_outputs"]: ModelOutput = encoder(
             **encoder_kwargs)
 

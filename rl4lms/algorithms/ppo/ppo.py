@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Type, Union
 
 import numpy as np
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from torch.nn import functional as F
 
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
@@ -57,8 +57,6 @@ class PPO(OnPolicyAlgorithm):
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
         By default, there is no limit on the kl div.
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically. (Only available when passing string for the environment)
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -94,7 +92,6 @@ class PPO(OnPolicyAlgorithm):
         sde_sample_freq: int = -1,
         target_kl: Optional[float] = None,
         tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
@@ -118,7 +115,6 @@ class PPO(OnPolicyAlgorithm):
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
-            create_eval_env=create_eval_env,
             seed=seed,
             _init_setup_model=False,
             supported_action_spaces=(
@@ -331,11 +327,7 @@ class PPO(OnPolicyAlgorithm):
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "PPO",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
     ) -> "PPO":
 
@@ -343,10 +335,6 @@ class PPO(OnPolicyAlgorithm):
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
             tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
         )

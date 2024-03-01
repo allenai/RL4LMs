@@ -4,12 +4,12 @@ from rl4lms.envs.common.observation import BaseObservation, BaseObservationFeatu
 from rl4lms.envs.common.reward import RewardFunction
 from rl4lms.data_pools.base import Sample
 from rl4lms.envs.common.action_space import ActionSpace
-from gym import spaces
-import gym
+from gymnasium import spaces
+import gymnasium
 import numpy as np
 
 
-class BaseEnv(gym.Env):
+class BaseEnv(gymnasium.Env):
     """
     A base class for all the environments
     """
@@ -28,7 +28,7 @@ class BaseEnv(gym.Env):
         self.return_obs_as_vector = return_obs_as_vector
         self.set_featurizer(observation_featurizer)
 
-    # Standard gym methods
+    # Standard gymnasium methods
 
     @abstractmethod
     def step(self, action: int) -> Tuple[Union[BaseObservation, np.array], int, bool, dict]:

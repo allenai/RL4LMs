@@ -1,23 +1,27 @@
-importlib-metadata<5.0
-spacy==3.0.6
-bert-score==0.3.11
+importlib-metadata
+spacy
+bert-score
 BLEURT @ git+https://github.com/google-research/bleurt.git@c6f2375c7c178e1480840cf27cb9e2af851394f9
-datasets==2.5.1
+datasets
 gem-metrics @ git+https://github.com/GEM-benchmark/GEM-metrics.git@431a8174bd6b3637e8d6118bfad2983e39e99733
-gym==0.21.0
-jsonlines==3.0.0
-nltk==3.7
-pandas==1.3.5
-rich==12.0.0
-stable-baselines3==1.5.1a5
-torch==1.11.0
-torchvision==0.12.0
-tqdm==4.64.0
-transformers==4.18.0
-wandb==0.12.15
-jsonlines==3.0.0
-rouge_score==0.0.4
-sacrebleu==2.2.0
-py-rouge==1.1
+#gym
+gymnasium
+jsonlines
+nltk
+pandas
+rich
+#stable-baselines3==1.5.1a5
+stable-baselines3
+torch
+torchvision
+tqdm
+transformers
+wandb
+jsonlines
+rouge_score
+sacrebleu
+py-rouge
 absl-py
 six
+# Needed to use Stable-Baselines3 with the deprecated OpenAI Gym.
+shimmy>=0.2.1

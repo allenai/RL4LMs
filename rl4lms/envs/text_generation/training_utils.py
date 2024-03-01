@@ -87,11 +87,15 @@ def build_env(env_config: Dict[str, Any],
         "samples": train_samples,
     }
     env_kwargs = {**env_kwargs, **env_config.get("args", {})}
-    env = make_vec_env(TextGenEnv,
-                       n_envs=env_config.get(
-                           "n_envs", 1),
-                       vec_env_cls=SubprocVecEnv,
-                       env_kwargs=env_kwargs)
+    n_envs = env_config.get("n_envs", 1)
+    if n_envs == 1:
+        env = TextGenEnv(**env_kwargs)
+        env.num_envs = 1
+    else:
+        env = make_vec_env(TextGenEnv,
+                           n_envs=n_envs,
+                           vec_env_cls=SubprocVecEnv,
+                           env_kwargs=env_kwargs)
     return env
 
 

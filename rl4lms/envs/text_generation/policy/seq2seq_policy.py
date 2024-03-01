@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional, List, Union
 import torch
-from gym.spaces import Discrete
-from gym.spaces.dict import Dict as DictSpace
+from gymnasium.spaces import Discrete
+from gymnasium.spaces.dict import Dict as DictSpace
 from torch import nn
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from stable_baselines3.common.distributions import CategoricalDistribution
@@ -134,9 +134,11 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin)
         )
 
         # and forward pass to get next token logits
-        outputs = self._policy_model(
-            **model_inputs, decoder_attention_mask=decoder_attn_mask, return_dict=True
-        )
+        outputs = self._policy_model(**{
+            **model_inputs,
+            "decoder_attention_mask": decoder_attn_mask,
+            "return_dict": True,
+        })
         next_token_logits = outputs.logits[:, -1, :]
 
         # get log probs
@@ -206,12 +208,12 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin)
         )
 
         # and forrward pass to get hidden states
-        outputs = self._value_model(
+        outputs = self._value_model(**{
             **model_inputs,
-            output_hidden_states=True,
-            decoder_attention_mask=decoder_attn_mask,
-            return_dict=True
-        )
+            "output_hidden_states": True,
+            "decoder_attention_mask": decoder_attn_mask,
+            "return_dict": True,
+        })
 
         # get decoder's last hidden state
         last_tokens_hidden = outputs.decoder_hidden_states[-1][:, -1, :].to(self.device)
@@ -298,9 +300,11 @@ class Seq2SeqLMActorCriticPolicy(LMActorCriticPolicy, ActorCriticWarmStartMixin)
         )
 
         # and forward pass to get next token logits
-        outputs = self._ref_model(
-            **model_inputs, decoder_attention_mask=decoder_attn_mask, return_dict=True
-        )
+        outputs = self._ref_model(**{
+            **model_inputs,
+            "decoder_attention_mask": decoder_attn_mask,
+            "return_dict": True,
+        })
         next_token_logits = outputs.logits[:, -1, :]
 
         # get log probs
